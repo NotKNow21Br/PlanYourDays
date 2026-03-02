@@ -21,6 +21,9 @@
                 <p id="date-display" class="date-display">Caricamento data...</p>
             </div>
             <div class="header-right">
+                <button class="icon-btn" id="edit-btn" title="Modifica Tabella">
+                    <i class='bx bx-edit'></i>
+                </button>
                 <div class="progress-ring-container" title="Progresso Giornaliero">
                     <svg class="progress-ring" width="60" height="60">
                         <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.1)" stroke-width="4"
@@ -51,6 +54,36 @@
                 <p>Ottimo lavoro. Hai completato tutte le attività previste per oggi.</p>
             </div>
         </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Modifica <span class="highlight">Tabella</span></h2>
+                <button class="close-btn" id="close-modal-btn"><i class='bx bx-x'></i></button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" data-edit-day="standard">Standard</button>
+                <button class="modal-tab-btn" data-edit-day="mercoledi">Mercoledì</button>
+                <button class="modal-tab-btn" data-edit-day="venerdi">Venerdì</button>
+            </div>
+
+            <div class="modal-body">
+                <div id="edit-tasks-container" class="edit-tasks-container">
+                    <!-- Tasks injected by JavaScript -->
+                </div>
+                <button class="add-task-btn" id="add-task-btn">
+                    <i class='bx bx-plus'></i> Aggiungi Attività
+                </button>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-edit-btn">Annulla</button>
+                <button class="btn btn-primary" id="save-edit-btn">Salva Modifiche</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

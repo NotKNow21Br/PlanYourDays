@@ -51,15 +51,36 @@ const progressCircle = document.getElementById('progress-circle');
 const progressText = document.getElementById('progress-text');
 const allDoneMessage = document.getElementById('all-done-message');
 
+// Modal Elements
+const editBtn = document.getElementById('edit-btn');
+const editModal = document.getElementById('edit-modal');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
+const saveEditBtn = document.getElementById('save-edit-btn');
+const modalTabBtns = document.querySelectorAll('.modal-tab-btn');
+const editTasksContainer = document.getElementById('edit-tasks-container');
+const addTaskBtn = document.getElementById('add-task-btn');
+
 let currentDayKey = 'standard';
+let editingDayKey = 'standard';
+let tempScheduleData = {};
 
 function initApp() {
+    loadCustomSchedule();
     setupDateAndReset();
     determineCurrentDayKey();
     if (currentDayKey === 'domenica') {
         renderRestDay();
     } else {
         renderSchedule();
+    }
+    attachModalListeners();
+}
+
+function loadCustomSchedule() {
+    const savedSchedule = localStorage.getItem('tabellaGiornataSchedule');
+    if (savedSchedule) {
+        Object.assign(scheduleData, JSON.parse(savedSchedule));
     }
 }
 
@@ -208,5 +229,117 @@ function updateProgress() {
 
 // Attach functions to global scope for HTML inline handlers
 window.toggleTask = toggleTask;
+
+// --- Edit Modal Logic ---
+function attachModalListeners() {
+    editBtn.addEventListener('click', openEditModal);
+    closeModalBtn.addEventListener('click', closeEditModal);
+    cancelEditBtn.addEventListener('click', closeEditModal);
+    saveEditBtn.addEventListener('click', saveEditedSchedule);
+    addTaskBtn.addEventListener('click', addNewEditTask);
+
+    modalTabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            saveCurrentEditTab();
+            editingDayKey = e.target.dataset.editDay;
+            updateModalTabsUI();
+            renderEditTasks();
+        });
+    });
+}
+
+function openEditModal() {
+    tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
+    editingDayKey = currentDayKey === 'domenica' ? 'standard' : currentDayKey;
+    updateModalTabsUI();
+    renderEditTasks();
+    editModal.classList.add('active');
+}
+
+function closeEditModal() {
+    editModal.classList.remove('active');
+}
+
+function updateModalTabsUI() {
+    modalTabBtns.forEach(btn => {
+        if (btn.dataset.editDay === editingDayKey) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
+
+function renderEditTasks() {
+    editTasksContainer.innerHTML = '';
+    const tasks = tempScheduleData[editingDayKey] || [];
+
+    tasks.forEach((task, index) => {
+        const row = document.createElement('div');
+        row.className = 'edit-task-row';
+        row.innerHTML = `
+            <input type="time" class="edit-time" value="${task.time}" required>
+            <input type="text" class="edit-title" value="${task.title}" placeholder="Titolo" required>
+            <input type="text" class="edit-details" value="${task.details}" placeholder="Dettagli">
+            <button class="remove-task-btn" onclick="removeEditTask(${index})">
+                <i class='bx bx-trash'></i>
+            </button>
+        `;
+        editTasksContainer.appendChild(row);
+    });
+}
+
+function addNewEditTask() {
+    saveCurrentEditTab();
+    if (!tempScheduleData[editingDayKey]) {
+        tempScheduleData[editingDayKey] = [];
+    }
+    tempScheduleData[editingDayKey].push({
+        id: `task-${Date.now()}`,
+        time: "12:00",
+        title: "Nuova Attività",
+        details: ""
+    });
+    renderEditTasks();
+}
+
+window.removeEditTask = function (index) {
+    saveCurrentEditTab();
+    tempScheduleData[editingDayKey].splice(index, 1);
+    renderEditTasks();
+}
+
+function saveCurrentEditTab() {
+    const rows = editTasksContainer.querySelectorAll('.edit-task-row');
+    const newTasks = [];
+
+    rows.forEach(row => {
+        const time = row.querySelector('.edit-time').value;
+        const title = row.querySelector('.edit-title').value;
+        const details = row.querySelector('.edit-details').value;
+
+        newTasks.push({
+            id: `task-${editingDayKey}-${time.replace(':', '')}-${Date.now() + Math.random()}`,
+            time: time || "00:00",
+            title: title || "Senza Titolo",
+            details: details || ""
+        });
+    });
+
+    newTasks.sort((a, b) => a.time.localeCompare(b.time));
+    tempScheduleData[editingDayKey] = newTasks;
+}
+
+function saveEditedSchedule() {
+    saveCurrentEditTab();
+    Object.assign(scheduleData, tempScheduleData);
+    localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(scheduleData));
+    closeEditModal();
+    if (currentDayKey === 'domenica') {
+        renderRestDay();
+    } else {
+        renderSchedule();
+    }
+}
 
 document.addEventListener('DOMContentLoaded', initApp);
