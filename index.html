@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Mia Giornata</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-glow"></div>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>Tabella della <span class="highlight">Giornata</span></h1>
+                <p id="date-display" class="date-display">Caricamento data...</p>
+            </div>
+            <div class="header-right">
+                <div class="progress-ring-container" title="Progresso Giornaliero">
+                    <svg class="progress-ring" width="60" height="60">
+                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.1)" stroke-width="4"
+                            fill="transparent" r="26" cx="30" cy="30" />
+                        <circle class="progress-ring__circle" id="progress-circle" stroke="#3b82f6" stroke-width="4"
+                            fill="transparent" r="26" cx="30" cy="30" />
+                    </svg>
+                    <span id="progress-text" class="progress-text">0%</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="tabs" id="day-tabs">
+            <button class="tab-btn active" data-day="standard">Standard</button>
+            <button class="tab-btn" data-day="mercoledi">Mercoledì</button>
+            <button class="tab-btn" data-day="venerdi">Venerdì</button>
+        </div>
+
+        <main>
+            <div class="schedule-list" id="schedule-list">
+                <!-- Tasks injected by JavaScript -->
+            </div>
+            <div class="all-done-message" id="all-done-message">
+                <i class='bx bxs-party'></i>
+                <h3>Giornata Completata!</h3>
+                <p>Ottimo lavoro. Hai completato tutte le attività previste per oggi.</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
