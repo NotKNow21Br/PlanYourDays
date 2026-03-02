@@ -10,9 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="style.css">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50%' y='50%' font-size='60' text-anchor='middle' dominant-baseline='central' fill='white'>📅</text></svg>">
 </head>
 
 <body>
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
     <div class="background-glow"></div>
     <div class="container">
         <header>
@@ -80,8 +88,17 @@
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-edit-btn">Annulla</button>
-                <button class="btn btn-primary" id="save-edit-btn">Salva Modifiche</button>
+                <div class="footer-left" style="display:flex; gap:0.5rem; flex:1;">
+                    <button class="btn btn-secondary" id="export-btn" title="Esporta Dati"><i
+                            class='bx bx-export'></i></button>
+                    <button class="btn btn-secondary" id="import-btn" title="Importa Dati"><i
+                            class='bx bx-import'></i></button>
+                    <input type="file" id="import-file-input" accept=".json" style="display:none">
+                </div>
+                <div class="footer-right" style="display:flex; gap:1rem;">
+                    <button class="btn btn-secondary" id="cancel-edit-btn">Annulla</button>
+                    <button class="btn btn-primary" id="save-edit-btn">Salva Modifiche</button>
+                </div>
             </div>
         </div>
     </div>

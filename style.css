@@ -1,4 +1,5 @@
 :root {
+    /* Default dark theme (Night/Evening) */
     --bg-main: #0a0a0f;
     --card-bg: rgba(20, 20, 30, 0.6);
     --card-border: rgba(255, 255, 255, 0.08);
@@ -9,6 +10,43 @@
     --success: #10b981;
     --gradient-start: #3b82f6;
     --gradient-end: #8b5cf6;
+    --glow-secondary: rgba(139, 92, 246, 0.3);
+}
+
+body.theme-morning {
+    --bg-main: #1a1a24;
+    --gradient-start: #f59e0b;
+    --gradient-end: #ef4444;
+    --accent: #f59e0b;
+    --accent-glow: rgba(245, 158, 11, 0.5);
+    --glow-secondary: rgba(239, 68, 68, 0.3);
+}
+
+body.theme-afternoon {
+    --bg-main: #161b22;
+    --gradient-start: #06b6d4;
+    --gradient-end: #3b82f6;
+    --accent: #06b6d4;
+    --accent-glow: rgba(6, 182, 212, 0.5);
+    --glow-secondary: rgba(59, 130, 246, 0.3);
+}
+
+body.theme-evening {
+    --bg-main: #101018;
+    --gradient-start: #8b5cf6;
+    --gradient-end: #ec4899;
+    --accent: #8b5cf6;
+    --accent-glow: rgba(139, 92, 246, 0.5);
+    --glow-secondary: rgba(236, 72, 153, 0.3);
+}
+
+body.theme-night {
+    --bg-main: #050508;
+    --gradient-start: #3b82f6;
+    --gradient-end: #1e3a8a;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.5);
+    --glow-secondary: rgba(30, 58, 138, 0.3);
 }
 
 * {
@@ -47,7 +85,7 @@ body {
     right: -50vw;
     width: 70vw;
     height: 70vh;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, rgba(10, 10, 15, 0) 70%);
+    background: radial-gradient(circle, var(--glow-secondary) 0%, rgba(10, 10, 15, 0) 70%);
     filter: blur(100px);
 }
 
@@ -186,6 +224,12 @@ h1 {
 
 .task-card.completed {
     opacity: 0.6;
+}
+
+.task-card.current-task {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    animation: currentTaskPulse 2s infinite ease-in-out;
 }
 
 .task-card.completed::after {
@@ -380,6 +424,23 @@ h1 {
     }
 }
 
+@keyframes currentTaskPulse {
+    0% {
+        box-shadow: 0 0 10px var(--accent-glow);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 25px var(--accent-glow);
+        transform: scale(1.02);
+    }
+
+    100% {
+        box-shadow: 0 0 10px var(--accent-glow);
+        transform: scale(1);
+    }
+}
+
 /* Modal Styles */
 .icon-btn {
     background: rgba(255, 255, 255, 0.1);
@@ -540,7 +601,7 @@ h1 {
 
 .edit-task-row {
     display: grid;
-    grid-template-columns: 100px 1.2fr 1.5fr 45px;
+    grid-template-columns: 20px 100px 1.2fr 1.5fr 45px;
     gap: 12px;
     background: rgba(255, 255, 255, 0.03);
     padding: 1.25rem;
@@ -548,6 +609,31 @@ h1 {
     border: 1px solid var(--card-border);
     align-items: center;
     transition: all 0.3s;
+}
+
+.drag-handle {
+    color: var(--text-secondary);
+    cursor: grab;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.edit-task-row.dragging {
+    opacity: 0.5;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+    border: 1px dashed var(--accent);
+}
+
+.edit-task-row.drag-over {
+    border-top: 2px solid var(--accent);
+    padding-top: 1.5rem;
 }
 
 .edit-task-row:hover {
@@ -707,20 +793,93 @@ h1 {
         right: 1rem;
     }
 
-    .edit-task-row input:nth-child(1) {
+    .drag-handle {
+        position: absolute;
+        top: 1.5rem;
+        left: 0.5rem;
+    }
+
+    .edit-task-row .edit-time {
         grid-row: 1;
-        width: calc(100% - 60px);
+        width: calc(100% - 90px);
+        margin-left: 30px;
         text-align: left;
         padding-left: 1rem;
     }
 
-    .edit-task-row input:nth-child(2) {
+    .edit-task-row .edit-title {
         grid-row: 2;
         width: 100%;
     }
 
-    .edit-task-row input:nth-child(3) {
+    .edit-task-row .edit-details {
         grid-row: 3;
         width: 100%;
+    }
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.toast {
+    background: var(--bg-main);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    color: var(--text-primary);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px var(--accent-glow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: slideInRight 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    cursor: pointer;
+    min-width: 250px;
+}
+
+.toast.fade-out {
+    animation: fadeOut 0.4s ease forwards;
+}
+
+.toast-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+}
+
+.toast-details {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+@keyframes slideInRight {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(100%);
+        opacity: 0;
     }
 }

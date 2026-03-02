@@ -60,21 +60,37 @@ const saveEditBtn = document.getElementById('save-edit-btn');
 const modalTabBtns = document.querySelectorAll('.modal-tab-btn');
 const editTasksContainer = document.getElementById('edit-tasks-container');
 const addTaskBtn = document.getElementById('add-task-btn');
+const exportBtn = document.getElementById('export-btn');
+const importBtn = document.getElementById('import-btn');
+const importFileInput = document.getElementById('import-file-input');
 
 let currentDayKey = 'standard';
 let editingDayKey = 'standard';
 let tempScheduleData = {};
 
+let lastNotifiedTaskIndex = -1;
+let audioContext = null;
+
 function initApp() {
     loadCustomSchedule();
     setupDateAndReset();
     determineCurrentDayKey();
+    updateThemeBasedOnTime();
+
     if (currentDayKey === 'domenica') {
         renderRestDay();
     } else {
         renderSchedule();
     }
     attachModalListeners();
+
+    // Start interval to check time-based updates every minute
+    setInterval(() => {
+        updateThemeBasedOnTime();
+        if (currentDayKey !== 'domenica') {
+            checkCurrentTask();
+        }
+    }, 60000);
 }
 
 function loadCustomSchedule() {
@@ -136,13 +152,140 @@ function toggleTask(taskId) {
     saveState();
 
     const taskEl = document.getElementById(`card-${taskId}`);
-    if (appState.completed[taskId]) {
-        taskEl.classList.add('completed');
-    } else {
-        taskEl.classList.remove('completed');
+    if (taskEl) {
+        if (appState.completed[taskId]) {
+            taskEl.classList.add('completed');
+        } else {
+            taskEl.classList.remove('completed');
+        }
     }
 
     updateProgress();
+}
+
+function updateThemeBasedOnTime() {
+    const hour = new Date().getHours();
+    document.body.className = ''; // reset themes
+
+    if (hour >= 6 && hour < 12) {
+        document.body.classList.add('theme-morning');
+    } else if (hour >= 12 && hour < 18) {
+        document.body.classList.add('theme-afternoon');
+    } else if (hour >= 18 && hour < 22) {
+        document.body.classList.add('theme-evening');
+    } else {
+        document.body.classList.add('theme-night');
+    }
+}
+
+function checkCurrentTask() {
+    const tasks = scheduleData[currentDayKey];
+    if (!tasks || tasks.length === 0) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    let currentTaskIndex = -1;
+
+    // Find the task that has started but not yet superseded by the next task
+    for (let i = 0; i < tasks.length; i++) {
+        const [hours, minutes] = tasks[i].time.split(':').map(Number);
+        const taskMinutes = hours * 60 + minutes;
+
+        if (currentMinutes >= taskMinutes) {
+            currentTaskIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    // Update UI and trigger notifications if task changed
+    tasks.forEach((task, index) => {
+        const cardEl = document.getElementById(`card-${task.id}`);
+        if (!cardEl) return;
+
+        if (index === currentTaskIndex) {
+            cardEl.classList.add('current-task');
+        } else {
+            cardEl.classList.remove('current-task');
+        }
+    });
+
+    if (currentTaskIndex !== -1 && currentTaskIndex !== lastNotifiedTaskIndex) {
+        // Only notify if it's not the first load of the page, or if we want to notify on load as well
+        // We'll skip notification on exact first load if lastNotifiedTaskIndex is -1 by setting it quietly on first run.
+        if (lastNotifiedTaskIndex !== -1) {
+            const currentTask = tasks[currentTaskIndex];
+            showNotification(currentTask.title, currentTask.time);
+            playNotificationSound();
+        }
+        lastNotifiedTaskIndex = currentTaskIndex;
+    }
+}
+
+// --- Notification Logic ---
+function showNotification(title, timeMsg) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+        <div class="toast-title">È ora di: ${title}</div>
+        <div class="toast-details">Iniziato alle ${timeMsg}</div>
+    `;
+
+    container.appendChild(toast);
+
+    // Remove on click
+    toast.addEventListener('click', () => {
+        removeToast(toast);
+    });
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        removeToast(toast);
+    }, 5000);
+}
+
+function removeToast(toast) {
+    if (toast.classList.contains('fade-out')) return;
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    });
+}
+
+function playNotificationSound() {
+    try {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+        oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.1); // C6
+
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.warn('Audio Context not supported or blocked', e);
+    }
 }
 
 function renderRestDay() {
@@ -190,6 +333,7 @@ function renderSchedule() {
         scheduleList.appendChild(card);
     });
 
+    checkCurrentTask();
     updateProgress();
 }
 
@@ -237,6 +381,9 @@ function attachModalListeners() {
     cancelEditBtn.addEventListener('click', closeEditModal);
     saveEditBtn.addEventListener('click', saveEditedSchedule);
     addTaskBtn.addEventListener('click', addNewEditTask);
+    exportBtn.addEventListener('click', exportScheduleData);
+    importBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', importScheduleData);
 
     modalTabBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -273,11 +420,15 @@ function updateModalTabsUI() {
 function renderEditTasks() {
     editTasksContainer.innerHTML = '';
     const tasks = tempScheduleData[editingDayKey] || [];
+    let draggedRowIndex = null;
 
     tasks.forEach((task, index) => {
         const row = document.createElement('div');
         row.className = 'edit-task-row';
+        row.draggable = true;
+
         row.innerHTML = `
+            <div class="drag-handle" title="Trascina per spostare"><i class='bx bx-menu'></i></div>
             <input type="time" class="edit-time" value="${task.time}" required>
             <input type="text" class="edit-title" value="${task.title}" placeholder="Titolo" required>
             <input type="text" class="edit-details" value="${task.details}" placeholder="Dettagli">
@@ -285,6 +436,50 @@ function renderEditTasks() {
                 <i class='bx bx-trash'></i>
             </button>
         `;
+
+        // Drag logic
+        row.addEventListener('dragstart', (e) => {
+            draggedRowIndex = index;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        row.addEventListener('dragend', () => {
+            draggedRowIndex = null;
+            row.classList.remove('dragging');
+            document.querySelectorAll('.edit-task-row').forEach(r => r.classList.remove('drag-over'));
+        });
+
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (draggedRowIndex !== null && draggedRowIndex !== index) {
+                row.classList.add('drag-over');
+            }
+        });
+
+        row.addEventListener('dragleave', () => {
+            row.classList.remove('drag-over');
+        });
+
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+
+            if (draggedRowIndex !== null && draggedRowIndex !== index) {
+                const rows = editTasksContainer.querySelectorAll('.edit-task-row');
+                const draggedTimeInput = rows[draggedRowIndex].querySelector('.edit-time');
+                const targetTimeInput = rows[index].querySelector('.edit-time');
+
+                // Swap purely the displayed times, causing chronological sort to swap their logical order
+                const tempTime = draggedTimeInput.value;
+                draggedTimeInput.value = targetTimeInput.value;
+                targetTimeInput.value = tempTime;
+
+                saveCurrentEditTab();
+                renderEditTasks();
+            }
+        });
+
         editTasksContainer.appendChild(row);
     });
 }
@@ -340,6 +535,71 @@ function saveEditedSchedule() {
     } else {
         renderSchedule();
     }
+}
+
+// --- Service Worker Registration ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('ServiceWorker registrato con successo: ', registration.scope);
+            })
+            .catch(error => {
+                console.log('Registrazione ServiceWorker fallita: ', error);
+            });
+    });
+}
+function exportScheduleData() {
+    const dataStr = JSON.stringify(scheduleData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tabella_giornata_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 0);
+    showNotification("Esportazione Completata", "File scaricato con successo!");
+}
+
+function importScheduleData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        try {
+            const parsedData = JSON.parse(event.target.result);
+            if (parsedData && parsedData.standard) {
+                Object.assign(scheduleData, parsedData);
+                localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(scheduleData));
+
+                // Refresh UI
+                if (editModal.classList.contains('active')) {
+                    tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
+                    renderEditTasks();
+                }
+
+                if (currentDayKey === 'domenica') {
+                    renderRestDay();
+                } else {
+                    renderSchedule();
+                }
+                showNotification("Importazione Completata", "Tabella caricata con successo!");
+            } else {
+                alert("Il file non sembra essere un file di configurazione valido.");
+            }
+        } catch (error) {
+            alert("Errore durante la lettura del file: " + error.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
