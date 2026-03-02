@@ -56,26 +56,28 @@ let currentDayKey = 'standard';
 function initApp() {
     setupDateAndReset();
     determineCurrentDayKey();
-    updateTabsUI();
-    renderSchedule();
-    attachTabListeners();
+    if (currentDayKey === 'domenica') {
+        renderRestDay();
+    } else {
+        renderSchedule();
+    }
 }
 
 function setupDateAndReset() {
     const today = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const dateStrItalian = today.toLocaleDateString('it-IT', options);
-    
+
     // Capitalize first letter
     dateDisplay.textContent = dateStrItalian.charAt(0).toUpperCase() + dateStrItalian.slice(1);
 
     const currentDateString = today.toISOString().split('T')[0];
-    
+
     const savedData = localStorage.getItem(appDataKey);
     if (savedData) {
         appState = JSON.parse(savedData);
     }
-    
+
     // Reset if new day
     if (appState.date !== currentDateString) {
         appState = {
@@ -88,7 +90,9 @@ function setupDateAndReset() {
 
 function determineCurrentDayKey() {
     const dayOfWeek = new Date().getDay(); // 0 is Sunday, 3 is Wed, 5 is Fri
-    if (dayOfWeek === 3) {
+    if (dayOfWeek === 0) {
+        currentDayKey = 'domenica';
+    } else if (dayOfWeek === 3) {
         currentDayKey = 'mercoledi';
     } else if (dayOfWeek === 5) {
         currentDayKey = 'venerdi';
@@ -101,25 +105,6 @@ function saveState() {
     localStorage.setItem(appDataKey, JSON.stringify(appState));
 }
 
-function updateTabsUI() {
-    tabBtns.forEach(btn => {
-        if (btn.dataset.day === currentDayKey) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-}
-
-function attachTabListeners() {
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            currentDayKey = e.target.dataset.day;
-            updateTabsUI();
-            renderSchedule();
-        });
-    });
-}
 
 function toggleTask(taskId) {
     if (appState.completed[taskId]) {
@@ -128,30 +113,45 @@ function toggleTask(taskId) {
         appState.completed[taskId] = true;
     }
     saveState();
-    
+
     const taskEl = document.getElementById(`card-${taskId}`);
     if (appState.completed[taskId]) {
         taskEl.classList.add('completed');
     } else {
         taskEl.classList.remove('completed');
     }
-    
+
     updateProgress();
+}
+
+function renderRestDay() {
+    scheduleList.innerHTML = `
+        <div class="all-done-message visible" style="margin-top: 0;">
+            <i class='bx bxs-sun'></i>
+            <h3>Oggi è Domenica!</h3>
+            <p>È un giorno di riposo. Rilassati e ricarica le energie per la nuova settimana.</p>
+        </div>
+    `;
+    progressText.textContent = `100%`;
+    progressCircle.style.strokeDasharray = `${2 * Math.PI * 26} ${2 * Math.PI * 26}`;
+    progressCircle.style.strokeDashoffset = 0;
+    progressCircle.setAttribute('stroke', '#10b981'); // success color
+    allDoneMessage.classList.remove('visible'); // already showing message in scheduleList
 }
 
 function renderSchedule() {
     scheduleList.innerHTML = '';
     const tasks = scheduleData[currentDayKey];
-    
+
     tasks.forEach((task, index) => {
         const isCompleted = !!appState.completed[task.id];
         const delay = index * 0.05;
-        
+
         const card = document.createElement('div');
         card.className = `task-card ${isCompleted ? 'completed' : ''}`;
         card.id = `card-${task.id}`;
         card.style.animationDelay = `${delay}s`;
-        
+
         card.innerHTML = `
             <div class="task-time">
                 ${task.time}
@@ -165,10 +165,10 @@ function renderSchedule() {
                 <span class="checkmark"></span>
             </label>
         `;
-        
+
         scheduleList.appendChild(card);
     });
-    
+
     updateProgress();
 }
 
@@ -176,27 +176,27 @@ function updateProgress() {
     const tasks = scheduleData[currentDayKey];
     const total = tasks.length;
     let completedCount = 0;
-    
+
     tasks.forEach(task => {
         if (appState.completed[task.id]) {
             completedCount++;
         }
     });
-    
+
     let percentage = 0;
     if (total > 0) {
         percentage = Math.round((completedCount / total) * 100);
     }
-    
+
     progressText.textContent = `${percentage}%`;
-    
+
     // Circle circumference = 2 * pi * r = 2 * 3.14159 * 26 ≈ 163.36
     const circumference = 2 * Math.PI * 26;
     progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
-    
+
     const offset = circumference - (percentage / 100) * circumference;
     progressCircle.style.strokeDashoffset = offset;
-    
+
     if (percentage === 100) {
         progressCircle.setAttribute('stroke', '#10b981'); // success color
         allDoneMessage.classList.add('visible');
