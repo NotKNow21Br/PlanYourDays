@@ -44,13 +44,21 @@
             </div>
         </header>
 
-        <!-- Tabs removed as per user request to only show the relevant day automatically
-        <div class="tabs" id="day-tabs">
-            <button class="tab-btn active" data-day="standard">Standard</button>
-            <button class="tab-btn" data-day="mercoledi">Mercoledì</button>
-            <button class="tab-btn" data-day="venerdi">Venerdì</button>
-        </div>
-        -->
+        <nav class="agenda-nav">
+            <button class="nav-btn" id="prev-day" title="Giorno Precedente">
+                <i class='bx bx-chevron-left'></i>
+            </button>
+            <div class="date-picker-wrapper">
+                <button class="date-picker-btn" id="today-btn">Oggi</button>
+                <input type="date" id="calendar-input" class="calendar-input">
+                <label for="calendar-input" class="calendar-label">
+                    <i class='bx bx-calendar'></i>
+                </label>
+            </div>
+            <button class="nav-btn" id="next-day" title="Giorno Successivo">
+                <i class='bx bx-chevron-right'></i>
+            </button>
+        </nav>
 
         <main>
             <div class="schedule-list" id="schedule-list">
@@ -76,6 +84,8 @@
                 <button class="modal-tab-btn active" data-edit-day="standard">Standard</button>
                 <button class="modal-tab-btn" data-edit-day="mercoledi">Mercoledì</button>
                 <button class="modal-tab-btn" data-edit-day="venerdi">Venerdì</button>
+                <button class="modal-tab-btn highlight-tab" id="specific-date-tab" data-edit-day="specific">Evento
+                    Singolo (Data)</button>
             </div>
 
             <div class="modal-body">

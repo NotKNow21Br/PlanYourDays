@@ -1,55 +1,40 @@
 const scheduleData = {
     standard: [
-        { id: "task-0", time: "06:40", title: "Sveglia", details: "Sveglia, Doccia, Colazione" },
-        { id: "task-1", time: "07:35", title: "Uscita di Casa", details: "Vado a Prendere il Treno" },
-        { id: "task-2", time: "08:10", title: "Inizio Lezioni/Lavoro", details: "Scuola/Lavoro" },
-        { id: "task-3", time: "13:45", title: "Arrivo a Casa e Pranzo", details: "Ritorno e Pranzo Leggero" },
-        { id: "task-4", time: "14:25", title: "Tempo Libero", details: "Giocare/Fare una Camminata" },
-        { id: "task-5", time: "16:00", title: "Studio e Compiti", details: "Compiti e Studiare Qualcosa di Piacevole" },
-        { id: "task-6", time: "17:00", title: "Tempo Libero 2", details: "Preparazione Cena, Hobby Breve" },
-        { id: "task-7", time: "20:00", title: "Cena", details: "Pasto con la Famiglia" },
-        { id: "task-8", time: "20:30", title: "Tempo Libero 3", details: "Giocare/Guardare Serie TV" },
-        { id: "task-9", time: "22:00", title: "Dormire", details: "Doccia, Igiene orale, Dormire" }
+        { id: "task-template-1", time: "08:00", title: "Attività Mattutina", details: "Descrizione attività" },
+        { id: "task-template-2", time: "13:00", title: "Pranzo", details: "Pausa pranzo" },
+        { id: "task-template-3", time: "20:00", title: "Attività Serale", details: "Relax" }
     ],
     mercoledi: [
-        { id: "task-10", time: "06:40", title: "Sveglia", details: "Sveglia, Doccia, Colazione" },
-        { id: "task-11", time: "07:35", title: "Uscita di Casa", details: "Vado a Prendere il Treno" },
-        { id: "task-12", time: "08:10", title: "Inizio Lezioni/Lavoro", details: "Scuola/Lavoro" },
-        { id: "task-13", time: "14:45", title: "Arrivo a Casa e Pranzo", details: "Ritorno e Pranzo Leggero" },
-        { id: "task-14", time: "15:30", title: "Tempo Libero", details: "Giocare/Fare una Camminata" },
-        { id: "task-15", time: "17:00", title: "Studio e Compiti", details: "Compiti e Studiare Qualcosa di Piacevole" },
-        { id: "task-16", time: "19:00", title: "Tempo Libero 2", details: "Preparazione Cena, Hobby Breve" },
-        { id: "task-17", time: "20:00", title: "Cena", details: "Pasto con la Famiglia" },
-        { id: "task-18", time: "21:00", title: "Tempo Libero 3", details: "Giocare/Guardare Serie TV" },
-        { id: "task-19", time: "22:00", title: "Dormire", details: "Doccia, Igiene orale, Dormire" }
+        { id: "task-wed-1", time: "09:00", title: "Attività del Mercoledì", details: "Programma speciale" }
     ],
     venerdi: [
-        { id: "task-20", time: "06:40", title: "Sveglia", details: "Sveglia, Doccia, Colazione" },
-        { id: "task-21", time: "07:35", title: "Uscita di Casa", details: "Vado a Prendere il Treno" },
-        { id: "task-22", time: "08:10", title: "Inizio Lezioni/Lavoro", details: "Scuola/Lavoro" },
-        { id: "task-23", time: "17:00", title: "Arrivo a Casa e Pranzo", details: "Ritorno e Pranzo Leggero" },
-        { id: "task-24", time: "17:30", title: "Tempo Libero", details: "Giocare/Fare una Camminata" },
-        { id: "task-25", time: "18:00", title: "Studio e Compiti", details: "Compiti e Studiare Qualcosa di Piacevole" },
-        { id: "task-26", time: "19:00", title: "Tempo Libero 2", details: "Preparazione Cena, Hobby Breve" },
-        { id: "task-27", time: "20:00", title: "Cena", details: "Pasto con la Famiglia" },
-        { id: "task-28", time: "20:30", title: "Tempo Libero 3", details: "Giocare/Guardare Serie TV" },
-        { id: "task-29", time: "22:00", title: "Dormire", details: "Doccia, Igiene orale, Dormire" }
+        { id: "task-fri-1", time: "09:00", title: "Attività del Venerdì", details: "Chiusura settimana" }
     ]
 };
 
 const appDataKey = 'tabellaGiornataApp';
+const specificEventsKey = 'tabellaGiornataEvents';
+
 let appState = {
-    date: null,
-    completed: {}
+    date: null, // This is now used for completed tasks of a specific date
+    completedByDate: {} // Format: { "YYYY-MM-DD": { "task-id": true } }
 };
+
+let specificEvents = {}; // Format: { "YYYY-MM-DD": [tasks] }
+let selectedDate = new Date();
 
 // Elements
 const dateDisplay = document.getElementById('date-display');
 const scheduleList = document.getElementById('schedule-list');
-const tabBtns = document.querySelectorAll('.tab-btn');
 const progressCircle = document.getElementById('progress-circle');
 const progressText = document.getElementById('progress-text');
 const allDoneMessage = document.getElementById('all-done-message');
+
+// Navigation Elements
+const prevDayBtn = document.getElementById('prev-day');
+const nextDayBtn = document.getElementById('next-day');
+const todayBtn = document.getElementById('today-btn');
+const calendarInput = document.getElementById('calendar-input');
 
 // Modal Elements
 const editBtn = document.getElementById('edit-btn');
@@ -73,24 +58,23 @@ let audioContext = null;
 
 function initApp() {
     loadCustomSchedule();
-    setupDateAndReset();
-    determineCurrentDayKey();
-    updateThemeBasedOnTime();
+    loadSpecificEvents();
+    loadAppState();
 
-    if (currentDayKey === 'domenica') {
-        renderRestDay();
-    } else {
-        renderSchedule();
-    }
+    updateDateDisplay();
+    renderSchedule();
+    attachNavListeners();
     attachModalListeners();
 
     // Start interval to check time-based updates every minute
     setInterval(() => {
         updateThemeBasedOnTime();
-        if (currentDayKey !== 'domenica') {
+        if (isToday(selectedDate)) {
             checkCurrentTask();
         }
     }, 60000);
+
+    updateThemeBasedOnTime();
 }
 
 function loadCustomSchedule() {
@@ -100,60 +84,141 @@ function loadCustomSchedule() {
     }
 }
 
-function setupDateAndReset() {
-    const today = new Date();
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const dateStrItalian = today.toLocaleDateString('it-IT', options);
+function loadSpecificEvents() {
+    const savedEvents = localStorage.getItem(specificEventsKey);
+    if (savedEvents) {
+        specificEvents = JSON.parse(savedEvents);
+    }
+}
 
-    // Capitalize first letter
-    dateDisplay.textContent = dateStrItalian.charAt(0).toUpperCase() + dateStrItalian.slice(1);
-
-    const currentDateString = today.toISOString().split('T')[0];
-
+function loadAppState() {
     const savedData = localStorage.getItem(appDataKey);
     if (savedData) {
         appState = JSON.parse(savedData);
-    }
-
-    // Reset if new day
-    if (appState.date !== currentDateString) {
-        appState = {
-            date: currentDateString,
-            completed: {}
-        };
-        saveState();
+        // Migration if old format
+        if (!appState.completedByDate) {
+            appState.completedByDate = {};
+            if (appState.date && appState.completed) {
+                appState.completedByDate[appState.date] = appState.completed;
+            }
+        }
     }
 }
 
-function determineCurrentDayKey() {
-    const dayOfWeek = new Date().getDay(); // 0 is Sunday, 3 is Wed, 5 is Fri
-    if (dayOfWeek === 0) {
-        currentDayKey = 'domenica';
-    } else if (dayOfWeek === 3) {
-        currentDayKey = 'mercoledi';
-    } else if (dayOfWeek === 5) {
-        currentDayKey = 'venerdi';
-    } else {
-        currentDayKey = 'standard';
-    }
-}
-
-function saveState() {
+function saveAppState() {
     localStorage.setItem(appDataKey, JSON.stringify(appState));
 }
 
+function saveSpecificEvents() {
+    localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
+}
+
+function updateDateDisplay() {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateStr = selectedDate.toLocaleDateString('it-IT', options);
+    dateDisplay.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+
+    // Sync calendar input
+    const yyyy = selectedDate.getFullYear();
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedDate.getDate()).padStart(2, '0');
+    calendarInput.value = `${yyyy}-${mm}-${dd}`;
+}
+
+function getDayKey(date) {
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0) return 'domenica';
+    if (dayOfWeek === 3) return 'mercoledi';
+    if (dayOfWeek === 5) return 'venerdi';
+    return 'standard';
+}
+
+function getFormattedDate(date) {
+    return date.toISOString().split('T')[0];
+}
+
+function isToday(date) {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear();
+}
+
+function renderSchedule() {
+    scheduleList.innerHTML = '';
+    const dateKey = getFormattedDate(selectedDate);
+    const dayKey = getDayKey(selectedDate);
+
+    let templateTasks = [];
+    if (dayKey !== 'domenica') {
+        templateTasks = JSON.parse(JSON.stringify(scheduleData[dayKey] || []));
+    }
+
+    const specificDateEvents = JSON.parse(JSON.stringify(specificEvents[dateKey] || []));
+
+    // Merge and sort by time
+    let tasks = [...templateTasks, ...specificDateEvents];
+    tasks.sort((a, b) => a.time.localeCompare(b.time));
+
+    if (tasks.length === 0 && dayKey === 'domenica') {
+        renderRestDay();
+        return;
+    }
+
+    const completedTasks = appState.completedByDate[dateKey] || {};
+
+    tasks.forEach((task, index) => {
+        const isCompleted = !!completedTasks[task.id];
+        const isSpecific = task.id.startsWith('event');
+        const delay = index * 0.05;
+
+        const card = document.createElement('div');
+        card.className = `task-card ${isCompleted ? 'completed' : ''} ${isSpecific ? 'specific-event' : ''}`;
+        card.id = `card-${task.id}`;
+        card.style.animationDelay = `${delay}s`;
+
+        card.innerHTML = `
+            <div class="task-time">
+                ${task.time}
+            </div>
+            <div class="task-info">
+                <h3 class="task-title">
+                    ${isSpecific ? '<i class="bx bx-calendar-event"></i> ' : ''}${task.title}
+                </h3>
+                <p class="task-details">${task.details}</p>
+            </div>
+            <label class="checkbox-container">
+                <input type="checkbox" id="check-${task.id}" ${isCompleted ? 'checked' : ''} onchange="toggleTask('${task.id}')">
+                <span class="checkmark"></span>
+            </label>
+        `;
+
+        scheduleList.appendChild(card);
+    });
+
+    if (isToday(selectedDate)) {
+        checkCurrentTask();
+    }
+    updateProgress();
+}
 
 function toggleTask(taskId) {
-    if (appState.completed[taskId]) {
-        delete appState.completed[taskId];
-    } else {
-        appState.completed[taskId] = true;
+    const dateKey = getFormattedDate(selectedDate);
+    if (!appState.completedByDate[dateKey]) {
+        appState.completedByDate[dateKey] = {};
     }
-    saveState();
+
+    if (appState.completedByDate[dateKey][taskId]) {
+        delete appState.completedByDate[dateKey][taskId];
+    } else {
+        appState.completedByDate[dateKey][taskId] = true;
+    }
+
+    saveAppState();
 
     const taskEl = document.getElementById(`card-${taskId}`);
     if (taskEl) {
-        if (appState.completed[taskId]) {
+        if (appState.completedByDate[dateKey][taskId]) {
             taskEl.classList.add('completed');
         } else {
             taskEl.classList.remove('completed');
@@ -163,7 +228,110 @@ function toggleTask(taskId) {
     updateProgress();
 }
 
+function updateProgress() {
+    const dateKey = getFormattedDate(selectedDate);
+    const dayKey = getDayKey(selectedDate);
+
+    let templateTasks = [];
+    if (dayKey !== 'domenica') {
+        templateTasks = scheduleData[dayKey] || [];
+    }
+    const specificDateEvents = specificEvents[dateKey] || [];
+    let tasks = [...templateTasks, ...specificDateEvents];
+
+    if (tasks.length === 0 && dayKey === 'domenica') {
+        progressText.textContent = `100%`;
+        updateCircleProgress(100);
+        return;
+    }
+
+    const total = tasks.length;
+    let completedCount = 0;
+    const completedTasks = appState.completedByDate[dateKey] || {};
+
+    tasks.forEach(task => {
+        if (completedTasks[task.id]) {
+            completedCount++;
+        }
+    });
+
+    let percentage = 0;
+    if (total > 0) {
+        percentage = Math.round((completedCount / total) * 100);
+    }
+
+    progressText.textContent = `${percentage}%`;
+    updateCircleProgress(percentage);
+
+    if (percentage === 100 && total > 0) {
+        allDoneMessage.classList.add('visible');
+    } else {
+        allDoneMessage.classList.remove('visible');
+    }
+}
+
+function updateCircleProgress(percentage) {
+    const circumference = 2 * Math.PI * 26;
+    progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+    const offset = circumference - (percentage / 100) * circumference;
+    progressCircle.style.strokeDashoffset = offset;
+
+    if (percentage === 100) {
+        progressCircle.setAttribute('stroke', '#10b981'); // success color
+    } else {
+        progressCircle.setAttribute('stroke', '#3b82f6'); // accent color
+    }
+}
+
+function renderRestDay() {
+    scheduleList.innerHTML = `
+        <div class="all-done-message visible" style="margin-top: 0;">
+            <i class='bx bxs-sun'></i>
+            <h3>Oggi è Domenica!</h3>
+            <p>È un giorno di riposo. Rilassati e ricarica le energie per la nuova settimana.</p>
+        </div>
+    `;
+    progressText.textContent = `100%`;
+    updateCircleProgress(100);
+    allDoneMessage.classList.remove('visible');
+}
+
+function attachNavListeners() {
+    prevDayBtn.addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() - 1);
+        updateAppAfterDateChange();
+    });
+
+    nextDayBtn.addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() + 1);
+        updateAppAfterDateChange();
+    });
+
+    todayBtn.addEventListener('click', () => {
+        selectedDate = new Date();
+        updateAppAfterDateChange();
+    });
+
+    calendarInput.addEventListener('change', (e) => {
+        const newDate = new Date(e.target.value);
+        if (!isNaN(newDate.getTime())) {
+            selectedDate = newDate;
+            updateAppAfterDateChange();
+        }
+    });
+}
+
+function updateAppAfterDateChange() {
+    updateDateDisplay();
+    renderSchedule();
+    updateThemeBasedOnTime();
+    // Reset last notified to allow notifications for new day
+    lastNotifiedTaskIndex = -1;
+}
+
 function updateThemeBasedOnTime() {
+    // Only update theme if it's today, otherwise use a neutral "day" theme?
+    // Let's keep the real-time theme as it's atmospheric.
     const hour = new Date().getHours();
     document.body.className = ''; // reset themes
 
@@ -179,7 +347,10 @@ function updateThemeBasedOnTime() {
 }
 
 function checkCurrentTask() {
-    const tasks = scheduleData[currentDayKey];
+    const dayKey = getDayKey(selectedDate);
+    const dateKey = getFormattedDate(selectedDate);
+    const tasks = specificEvents[dateKey] || scheduleData[dayKey];
+
     if (!tasks || tasks.length === 0) return;
 
     const now = new Date();
@@ -187,7 +358,6 @@ function checkCurrentTask() {
 
     let currentTaskIndex = -1;
 
-    // Find the task that has started but not yet superseded by the next task
     for (let i = 0; i < tasks.length; i++) {
         const [hours, minutes] = tasks[i].time.split(':').map(Number);
         const taskMinutes = hours * 60 + minutes;
@@ -199,7 +369,6 @@ function checkCurrentTask() {
         }
     }
 
-    // Update UI and trigger notifications if task changed
     tasks.forEach((task, index) => {
         const cardEl = document.getElementById(`card-${task.id}`);
         if (!cardEl) return;
@@ -212,8 +381,6 @@ function checkCurrentTask() {
     });
 
     if (currentTaskIndex !== -1 && currentTaskIndex !== lastNotifiedTaskIndex) {
-        // Only notify if it's not the first load of the page, or if we want to notify on load as well
-        // We'll skip notification on exact first load if lastNotifiedTaskIndex is -1 by setting it quietly on first run.
         if (lastNotifiedTaskIndex !== -1) {
             const currentTask = tasks[currentTaskIndex];
             showNotification(currentTask.title, currentTask.time);
@@ -223,7 +390,7 @@ function checkCurrentTask() {
     }
 }
 
-// --- Notification Logic ---
+// Reuse existing Notification and Modal logic with minimal changes
 function showNotification(title, timeMsg) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -236,43 +403,29 @@ function showNotification(title, timeMsg) {
     `;
 
     container.appendChild(toast);
-
-    // Remove on click
-    toast.addEventListener('click', () => {
-        removeToast(toast);
-    });
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        removeToast(toast);
-    }, 5000);
+    toast.addEventListener('click', () => removeToast(toast));
+    setTimeout(() => removeToast(toast), 5000);
 }
 
 function removeToast(toast) {
     if (toast.classList.contains('fade-out')) return;
     toast.classList.add('fade-out');
     toast.addEventListener('animationend', () => {
-        if (toast.parentNode) {
-            toast.parentNode.removeChild(toast);
-        }
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
     });
 }
 
 function playNotificationSound() {
     try {
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
 
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
-        oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.1); // C6
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioContext.currentTime + 0.1);
 
         gainNode.gain.setValueAtTime(0, audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
@@ -284,97 +437,11 @@ function playNotificationSound() {
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);
     } catch (e) {
-        console.warn('Audio Context not supported or blocked', e);
+        console.warn('Audio Context not supported', e);
     }
 }
 
-function renderRestDay() {
-    scheduleList.innerHTML = `
-        <div class="all-done-message visible" style="margin-top: 0;">
-            <i class='bx bxs-sun'></i>
-            <h3>Oggi è Domenica!</h3>
-            <p>È un giorno di riposo. Rilassati e ricarica le energie per la nuova settimana.</p>
-        </div>
-    `;
-    progressText.textContent = `100%`;
-    progressCircle.style.strokeDasharray = `${2 * Math.PI * 26} ${2 * Math.PI * 26}`;
-    progressCircle.style.strokeDashoffset = 0;
-    progressCircle.setAttribute('stroke', '#10b981'); // success color
-    allDoneMessage.classList.remove('visible'); // already showing message in scheduleList
-}
-
-function renderSchedule() {
-    scheduleList.innerHTML = '';
-    const tasks = scheduleData[currentDayKey];
-
-    tasks.forEach((task, index) => {
-        const isCompleted = !!appState.completed[task.id];
-        const delay = index * 0.05;
-
-        const card = document.createElement('div');
-        card.className = `task-card ${isCompleted ? 'completed' : ''}`;
-        card.id = `card-${task.id}`;
-        card.style.animationDelay = `${delay}s`;
-
-        card.innerHTML = `
-            <div class="task-time">
-                ${task.time}
-            </div>
-            <div class="task-info">
-                <h3 class="task-title">${task.title}</h3>
-                <p class="task-details">${task.details}</p>
-            </div>
-            <label class="checkbox-container">
-                <input type="checkbox" id="check-${task.id}" ${isCompleted ? 'checked' : ''} onchange="toggleTask('${task.id}')">
-                <span class="checkmark"></span>
-            </label>
-        `;
-
-        scheduleList.appendChild(card);
-    });
-
-    checkCurrentTask();
-    updateProgress();
-}
-
-function updateProgress() {
-    const tasks = scheduleData[currentDayKey];
-    const total = tasks.length;
-    let completedCount = 0;
-
-    tasks.forEach(task => {
-        if (appState.completed[task.id]) {
-            completedCount++;
-        }
-    });
-
-    let percentage = 0;
-    if (total > 0) {
-        percentage = Math.round((completedCount / total) * 100);
-    }
-
-    progressText.textContent = `${percentage}%`;
-
-    // Circle circumference = 2 * pi * r = 2 * 3.14159 * 26 ≈ 163.36
-    const circumference = 2 * Math.PI * 26;
-    progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
-
-    const offset = circumference - (percentage / 100) * circumference;
-    progressCircle.style.strokeDashoffset = offset;
-
-    if (percentage === 100) {
-        progressCircle.setAttribute('stroke', '#10b981'); // success color
-        allDoneMessage.classList.add('visible');
-    } else {
-        progressCircle.setAttribute('stroke', '#3b82f6'); // accent color
-        allDoneMessage.classList.remove('visible');
-    }
-}
-
-// Attach functions to global scope for HTML inline handlers
-window.toggleTask = toggleTask;
-
-// --- Edit Modal Logic ---
+// Modal Logic
 function attachModalListeners() {
     editBtn.addEventListener('click', openEditModal);
     closeModalBtn.addEventListener('click', closeEditModal);
@@ -397,11 +464,23 @@ function attachModalListeners() {
 
 function openEditModal() {
     tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
-    editingDayKey = currentDayKey === 'domenica' ? 'standard' : currentDayKey;
+    tempSpecificEvents = JSON.parse(JSON.stringify(specificEvents));
+
+    // Update specific date tab label
+    const dateTab = document.getElementById('specific-date-tab');
+    if (dateTab) {
+        const dateStr = selectedDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+        dateTab.textContent = `Evento ${dateStr}`;
+    }
+
+    const currentDay = getDayKey(selectedDate);
+    editingDayKey = currentDay === 'domenica' ? 'standard' : currentDay;
     updateModalTabsUI();
     renderEditTasks();
     editModal.classList.add('active');
 }
+
+let tempSpecificEvents = {};
 
 function closeEditModal() {
     editModal.classList.remove('active');
@@ -409,26 +488,26 @@ function closeEditModal() {
 
 function updateModalTabsUI() {
     modalTabBtns.forEach(btn => {
-        if (btn.dataset.editDay === editingDayKey) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+        btn.classList.toggle('active', btn.dataset.editDay === editingDayKey);
     });
 }
 
 function renderEditTasks() {
     editTasksContainer.innerHTML = '';
-    const tasks = tempScheduleData[editingDayKey] || [];
-    let draggedRowIndex = null;
+    let tasks = [];
+
+    if (editingDayKey === 'specific') {
+        const dateKey = getFormattedDate(selectedDate);
+        tasks = tempSpecificEvents[dateKey] || [];
+    } else {
+        tasks = tempScheduleData[editingDayKey] || [];
+    }
 
     tasks.forEach((task, index) => {
         const row = document.createElement('div');
         row.className = 'edit-task-row';
-        row.draggable = true;
-
         row.innerHTML = `
-            <div class="drag-handle" title="Trascina per spostare"><i class='bx bx-menu'></i></div>
+            <div class="drag-handle"><i class='bx bx-menu'></i></div>
             <input type="time" class="edit-time" value="${task.time}" required>
             <input type="text" class="edit-title" value="${task.title}" placeholder="Titolo" required>
             <input type="text" class="edit-details" value="${task.details}" placeholder="Dettagli">
@@ -436,73 +515,43 @@ function renderEditTasks() {
                 <i class='bx bx-trash'></i>
             </button>
         `;
-
-        // Drag logic
-        row.addEventListener('dragstart', (e) => {
-            draggedRowIndex = index;
-            row.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        });
-
-        row.addEventListener('dragend', () => {
-            draggedRowIndex = null;
-            row.classList.remove('dragging');
-            document.querySelectorAll('.edit-task-row').forEach(r => r.classList.remove('drag-over'));
-        });
-
-        row.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            if (draggedRowIndex !== null && draggedRowIndex !== index) {
-                row.classList.add('drag-over');
-            }
-        });
-
-        row.addEventListener('dragleave', () => {
-            row.classList.remove('drag-over');
-        });
-
-        row.addEventListener('drop', (e) => {
-            e.preventDefault();
-            row.classList.remove('drag-over');
-
-            if (draggedRowIndex !== null && draggedRowIndex !== index) {
-                const rows = editTasksContainer.querySelectorAll('.edit-task-row');
-                const draggedTimeInput = rows[draggedRowIndex].querySelector('.edit-time');
-                const targetTimeInput = rows[index].querySelector('.edit-time');
-
-                // Swap purely the displayed times, causing chronological sort to swap their logical order
-                const tempTime = draggedTimeInput.value;
-                draggedTimeInput.value = targetTimeInput.value;
-                targetTimeInput.value = tempTime;
-
-                saveCurrentEditTab();
-                renderEditTasks();
-            }
-        });
-
         editTasksContainer.appendChild(row);
     });
 }
 
 function addNewEditTask() {
     saveCurrentEditTab();
-    if (!tempScheduleData[editingDayKey]) {
-        tempScheduleData[editingDayKey] = [];
+    if (editingDayKey === 'specific') {
+        const dateKey = getFormattedDate(selectedDate);
+        if (!tempSpecificEvents[dateKey]) tempSpecificEvents[dateKey] = [];
+        tempSpecificEvents[dateKey].push({
+            id: `event-${dateKey}-${Date.now()}`,
+            time: "12:00",
+            title: "Nuovo Evento Speciale",
+            details: ""
+        });
+    } else {
+        if (!tempScheduleData[editingDayKey]) tempScheduleData[editingDayKey] = [];
+        tempScheduleData[editingDayKey].push({
+            id: `task-${Date.now()}`,
+            time: "12:00",
+            title: "Nuovo Evento",
+            details: ""
+        });
     }
-    tempScheduleData[editingDayKey].push({
-        id: `task-${Date.now()}`,
-        time: "12:00",
-        title: "Nuova Attività",
-        details: ""
-    });
     renderEditTasks();
 }
 
 window.removeEditTask = function (index) {
     saveCurrentEditTab();
-    tempScheduleData[editingDayKey].splice(index, 1);
+    if (editingDayKey === 'specific') {
+        const dateKey = getFormattedDate(selectedDate);
+        tempSpecificEvents[dateKey].splice(index, 1);
+    } else {
+        tempScheduleData[editingDayKey].splice(index, 1);
+    }
     renderEditTasks();
-}
+};
 
 function saveCurrentEditTab() {
     const rows = editTasksContainer.querySelectorAll('.edit-task-row');
@@ -513,8 +562,9 @@ function saveCurrentEditTab() {
         const title = row.querySelector('.edit-title').value;
         const details = row.querySelector('.edit-details').value;
 
+        const idPrefix = editingDayKey === 'specific' ? 'event' : 'task';
         newTasks.push({
-            id: `task-${editingDayKey}-${time.replace(':', '')}-${Date.now() + Math.random()}`,
+            id: `${idPrefix}-${editingDayKey}-${time.replace(':', '')}-${Math.random().toString(36).substr(2, 9)}`,
             time: time || "00:00",
             title: title || "Senza Titolo",
             details: details || ""
@@ -522,44 +572,42 @@ function saveCurrentEditTab() {
     });
 
     newTasks.sort((a, b) => a.time.localeCompare(b.time));
-    tempScheduleData[editingDayKey] = newTasks;
+
+    if (editingDayKey === 'specific') {
+        const dateKey = getFormattedDate(selectedDate);
+        tempSpecificEvents[dateKey] = newTasks;
+    } else {
+        tempScheduleData[editingDayKey] = newTasks;
+    }
 }
 
 function saveEditedSchedule() {
     saveCurrentEditTab();
     Object.assign(scheduleData, tempScheduleData);
+    Object.assign(specificEvents, tempSpecificEvents);
+
     localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(scheduleData));
+    localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
+
     closeEditModal();
-    if (currentDayKey === 'domenica') {
-        renderRestDay();
-    } else {
-        renderSchedule();
-    }
+    renderSchedule();
 }
 
-// --- Service Worker Registration ---
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(registration => {
-                console.log('ServiceWorker registrato con successo: ', registration.scope);
-            })
-            .catch(error => {
-                console.log('Registrazione ServiceWorker fallita: ', error);
-            });
-    });
-}
+// --- Export / Import ---
 function exportScheduleData() {
-    const dataStr = JSON.stringify(scheduleData, null, 2);
+    const fullData = {
+        template: scheduleData,
+        events: specificEvents
+    };
+    const dataStr = JSON.stringify(fullData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tabella_giornata_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `agenda_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
-
     setTimeout(() => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
@@ -575,31 +623,37 @@ function importScheduleData(e) {
     reader.onload = function (event) {
         try {
             const parsedData = JSON.parse(event.target.result);
-            if (parsedData && parsedData.standard) {
-                Object.assign(scheduleData, parsedData);
+            if (parsedData.template) {
+                Object.assign(scheduleData, parsedData.template);
                 localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(scheduleData));
-
-                // Refresh UI
-                if (editModal.classList.contains('active')) {
-                    tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
-                    renderEditTasks();
-                }
-
-                if (currentDayKey === 'domenica') {
-                    renderRestDay();
-                } else {
-                    renderSchedule();
-                }
-                showNotification("Importazione Completata", "Tabella caricata con successo!");
-            } else {
-                alert("Il file non sembra essere un file di configurazione valido.");
             }
+            if (parsedData.events) {
+                Object.assign(specificEvents, parsedData.events);
+                localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
+            }
+
+            // Refresh UI
+            if (editModal.classList.contains('active')) {
+                tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
+                tempSpecificEvents = JSON.parse(JSON.stringify(specificEvents));
+                renderEditTasks();
+            }
+            renderSchedule();
+            showNotification("Importazione Completata", "Dati caricati!");
         } catch (error) {
-            alert("Errore durante la lettura del file: " + error.message);
+            alert("Errore durante l'importazione: " + error.message);
         }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input
+    e.target.value = ''; // Reset
+}
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+window.toggleTask = toggleTask;
