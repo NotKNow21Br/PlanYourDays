@@ -63,8 +63,8 @@ const exportBtn = document.getElementById('export-btn');
 const importBtn = document.getElementById('import-btn');
 const importFileInput = document.getElementById('import-file-input');
 
-let currentDayKey = 'standard';
-let editingDayKey = 'standard';
+let currentDayKey = 'lunedi';
+let editingDayKey = 'lunedi';
 let tempScheduleData = {};
 
 let lastNotifiedTaskIndex = -1;
@@ -598,15 +598,15 @@ function renderEditTasks() {
 
     if (editingDayKey === 'specific') {
         const dateKey = getFormattedDate(selectedDate);
-        renderStandardEditRows(tempSpecificEvents[dateKey] || []);
+        renderDailyEditRows(tempSpecificEvents[dateKey] || []);
     } else if (editingDayKey === 'recurring') {
         renderRecurringEditRows(tempRecurringEvents);
     } else {
-        renderStandardEditRows(tempScheduleData[editingDayKey] || []);
+        renderDailyEditRows(tempScheduleData[editingDayKey] || []);
     }
 }
 
-function renderStandardEditRows(tasks) {
+function renderDailyEditRows(tasks) {
     tasks.forEach((task, index) => {
         const row = document.createElement('div');
         row.className = 'edit-task-row';
