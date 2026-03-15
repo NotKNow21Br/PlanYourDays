@@ -27,6 +27,15 @@
             <div class="header-left">
                 <h1>Tabella della <span class="highlight">Giornata</span></h1>
                 <p id="date-display" class="date-display">Caricamento data...</p>
+                <div class="gamification-header">
+                    <div class="level-badge" id="level-badge">LV. 1</div>
+                    <div class="xp-container" title="Esperienza">
+                        <div class="xp-bar-bg">
+                            <div class="xp-bar-fill" id="xp-bar-fill" style="width: 0%"></div>
+                        </div>
+                        <span id="xp-text" class="xp-text">0 / 100 XP</span>
+                    </div>
+                </div>
             </div>
             <div class="header-right">
                 <button class="icon-btn" id="edit-btn" title="Modifica Tabella">
@@ -60,6 +69,51 @@
             </button>
         </nav>
 
+        <div class="top-widgets">
+            <div id="quote-widget" class="quote-widget">
+                <i class='bx bxs-quote-alt-left quote-icon'></i>
+                <p id="quote-text" class="quote-text">Sii il cambiamento che vuoi vedere nel mondo.</p>
+            </div>
+
+            <div class="stats-controls">
+                <button class="icon-btn-text" id="stats-toggle-btn">
+                    <i class='bx bx-line-chart'></i> Statistiche
+                </button>
+            </div>
+        </div>
+
+        <div id="stats-panel" class="stats-panel">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class='bx bx-check-double'></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-total-completed">0</span>
+                        <span class="stat-label">Task Totali</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class='bx bx-flame'></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-streak">0</span>
+                        <span class="stat-label">Giorni Streak</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class='bx bx-trophy'></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-rank">Bronzo</span>
+                        <span class="stat-label">Grado</span>
+                    </div>
+                </div>
+            </div>
+            <div class="weekly-chart-wrapper">
+                <div class="chart-header">Attività Ultimi 7 Giorni</div>
+                <div class="week-chart" id="week-chart">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </div>
+
         <main>
             <div class="schedule-list" id="schedule-list">
                 <!-- Tasks injected by JavaScript -->
@@ -81,11 +135,17 @@
             </div>
 
             <div class="modal-tabs">
-                <button class="modal-tab-btn active" data-edit-day="standard">Standard</button>
-                <button class="modal-tab-btn" data-edit-day="mercoledi">Mercoledì</button>
-                <button class="modal-tab-btn" data-edit-day="venerdi">Venerdì</button>
+                <button class="modal-tab-btn" data-edit-day="lunedi">Lun</button>
+                <button class="modal-tab-btn" data-edit-day="martedi">Mar</button>
+                <button class="modal-tab-btn" data-edit-day="mercoledi">Mer</button>
+                <button class="modal-tab-btn" data-edit-day="giovedi">Gio</button>
+                <button class="modal-tab-btn" data-edit-day="venerdi">Ven</button>
+                <button class="modal-tab-btn" data-edit-day="sabato">Sab</button>
+                <button class="modal-tab-btn" data-edit-day="domenica">Dom</button>
+                <button class="modal-tab-btn" data-edit-day="recurring"
+                    title="Eventi che si ripetono">Ricorrenze</button>
                 <button class="modal-tab-btn highlight-tab" id="specific-date-tab" data-edit-day="specific">Evento
-                    Singolo (Data)</button>
+                    (Data)</button>
             </div>
 
             <div class="modal-body">

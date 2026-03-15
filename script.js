@@ -1,23 +1,37 @@
 const scheduleData = {
-    standard: [
+    lunedi: [
         { id: "task-template-1", time: "08:00", title: "Attività Mattutina", details: "Descrizione attività" },
         { id: "task-template-2", time: "13:00", title: "Pranzo", details: "Pausa pranzo" },
         { id: "task-template-3", time: "20:00", title: "Attività Serale", details: "Relax" }
     ],
+    martedi: [],
     mercoledi: [
         { id: "task-wed-1", time: "09:00", title: "Attività del Mercoledì", details: "Programma speciale" }
     ],
+    giovedi: [],
     venerdi: [
         { id: "task-fri-1", time: "09:00", title: "Attività del Venerdì", details: "Chiusura settimana" }
-    ]
+    ],
+    sabato: [],
+    domenica: []
 };
 
 const appDataKey = 'tabellaGiornataApp';
 const specificEventsKey = 'tabellaGiornataEvents';
+const recurringEventsKey = 'tabellaGiornataRecurring';
+
+let recurringEvents = []; // Array per eventi con regole di ripetizione
 
 let appState = {
-    date: null, // This is now used for completed tasks of a specific date
-    completedByDate: {} // Format: { "YYYY-MM-DD": { "task-id": true } }
+    date: null,
+    completedByDate: {},
+    gamification: {
+        xp: 0,
+        level: 1,
+        totalCompleted: 0,
+        streak: 0,
+        lastActiveDate: null
+    }
 };
 
 let specificEvents = {}; // Format: { "YYYY-MM-DD": [tasks] }
@@ -55,16 +69,34 @@ let tempScheduleData = {};
 
 let lastNotifiedTaskIndex = -1;
 let audioContext = null;
+let focusInterval = null;
+let focusSeconds = 0;
+let activeFocusTaskId = null;
+
+const quotes = [
+    "Sii il cambiamento che vuoi vedere nel mondo. - Gandhi",
+    "Il successo è l'abilità di passare da un fallimento all'altro senza perdere l'entusiasmo. - Churchill",
+    "La felicità non è qualcosa di pronto. Viene dalle tue azioni. - Dalai Lama",
+    "Fai oggi ciò che gli altri non faranno, così domani potrai fare ciò che gli altri non potranno. - Jerry Rice",
+    "L'unica persona che sei destinato a diventare è la persona che decidi di essere. - Emerson",
+    "Non contare i giorni, fai in modo che i giorni contino. - Muhammad Ali",
+    "La disciplina è il ponte tra gli obiettivi e i risultati. - Jim Rohn",
+    "La tua produttività è la tua libertà. - Anonimo"
+];
 
 function initApp() {
     loadCustomSchedule();
     loadSpecificEvents();
     loadAppState();
+    loadRecurringEvents();
 
     updateDateDisplay();
     renderSchedule();
     attachNavListeners();
     attachModalListeners();
+    initGamification();
+    initStatsPanel();
+    displayRandomQuote();
 
     // Start interval to check time-based updates every minute
     setInterval(() => {
@@ -80,7 +112,21 @@ function initApp() {
 function loadCustomSchedule() {
     const savedSchedule = localStorage.getItem('tabellaGiornataSchedule');
     if (savedSchedule) {
-        Object.assign(scheduleData, JSON.parse(savedSchedule));
+        const parsed = JSON.parse(savedSchedule);
+
+        // Migration: if "standard" exists, copy its data to days that don't have a custom template yet
+        if (parsed.standard) {
+            const standardData = parsed.standard;
+            ['lunedi', 'martedi', 'giovedi', 'sabato'].forEach(day => {
+                if (!parsed[day] || parsed[day].length === 0) {
+                    parsed[day] = JSON.parse(JSON.stringify(standardData));
+                }
+            });
+            delete parsed.standard; // Clean up old format
+            localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(parsed));
+        }
+
+        Object.assign(scheduleData, parsed);
     }
 }
 
@@ -94,7 +140,9 @@ function loadSpecificEvents() {
 function loadAppState() {
     const savedData = localStorage.getItem(appDataKey);
     if (savedData) {
-        appState = JSON.parse(savedData);
+        const parsed = JSON.parse(savedData);
+        appState = { ...appState, ...parsed };
+
         // Migration if old format
         if (!appState.completedByDate) {
             appState.completedByDate = {};
@@ -113,6 +161,17 @@ function saveSpecificEvents() {
     localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
 }
 
+function loadRecurringEvents() {
+    const saved = localStorage.getItem(recurringEventsKey);
+    if (saved) {
+        recurringEvents = JSON.parse(saved);
+    }
+}
+
+function saveRecurringEvents() {
+    localStorage.setItem(recurringEventsKey, JSON.stringify(recurringEvents));
+}
+
 function updateDateDisplay() {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const dateStr = selectedDate.toLocaleDateString('it-IT', options);
@@ -126,11 +185,8 @@ function updateDateDisplay() {
 }
 
 function getDayKey(date) {
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0) return 'domenica';
-    if (dayOfWeek === 3) return 'mercoledi';
-    if (dayOfWeek === 5) return 'venerdi';
-    return 'standard';
+    const days = ['domenica', 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato'];
+    return days[date.getDay()];
 }
 
 function getFormattedDate(date) {
@@ -144,20 +200,54 @@ function isToday(date) {
         date.getFullYear() === today.getFullYear();
 }
 
+function getRecurringEventsForDate(date) {
+    const matchedEvents = [];
+    const dateCopy = new Date(date.getTime());
+    dateCopy.setHours(0, 0, 0, 0);
+
+    recurringEvents.forEach(event => {
+        const start = new Date(event.startDate);
+        start.setHours(0, 0, 0, 0);
+
+        if (dateCopy < start) return;
+
+        let isMatch = false;
+
+        if (event.type === 'daily') {
+            const diffDays = Math.floor((dateCopy - start) / (1000 * 60 * 60 * 24));
+            if (diffDays % event.interval === 0) isMatch = true;
+        } else if (event.type === 'monthly') {
+            const months = (dateCopy.getFullYear() - start.getFullYear()) * 12 + (dateCopy.getMonth() - start.getMonth());
+            if (months >= 0 && months % event.interval === 0 && dateCopy.getDate() === start.getDate()) isMatch = true;
+        } else if (event.type === 'yearly') {
+            const years = dateCopy.getFullYear() - start.getFullYear();
+            if (years >= 0 && years % event.interval === 0 && dateCopy.getMonth() === start.getMonth() && dateCopy.getDate() === start.getDate()) isMatch = true;
+        }
+
+        if (isMatch) {
+            matchedEvents.push({
+                ...event,
+                id: `recurring-${event.id}-${dateCopy.getTime()}`,
+                isRecurring: true
+            });
+        }
+    });
+
+    return matchedEvents;
+}
+
 function renderSchedule() {
     scheduleList.innerHTML = '';
     const dateKey = getFormattedDate(selectedDate);
     const dayKey = getDayKey(selectedDate);
 
-    let templateTasks = [];
-    if (dayKey !== 'domenica') {
-        templateTasks = JSON.parse(JSON.stringify(scheduleData[dayKey] || []));
-    }
+    let templateTasks = JSON.parse(JSON.stringify(scheduleData[dayKey] || []));
 
+    const recurringForToday = getRecurringEventsForDate(selectedDate);
     const specificDateEvents = JSON.parse(JSON.stringify(specificEvents[dateKey] || []));
 
     // Merge and sort by time
-    let tasks = [...templateTasks, ...specificDateEvents];
+    let tasks = [...templateTasks, ...recurringForToday, ...specificDateEvents];
     tasks.sort((a, b) => a.time.localeCompare(b.time));
 
     if (tasks.length === 0 && dayKey === 'domenica') {
@@ -187,10 +277,17 @@ function renderSchedule() {
                 </h3>
                 <p class="task-details">${task.details}</p>
             </div>
-            <label class="checkbox-container">
-                <input type="checkbox" id="check-${task.id}" ${isCompleted ? 'checked' : ''} onchange="toggleTask('${task.id}')">
-                <span class="checkmark"></span>
-            </label>
+            <div class="task-actions">
+                <button class="focus-btn ${activeFocusTaskId === task.id ? 'active' : ''}" 
+                        onclick="toggleFocusTimer('${task.id}', '${task.title.replace(/'/g, "\\'")}')" 
+                        title="Focus Timer">
+                    <i class='bx bx-stopwatch'></i>
+                </button>
+                <label class="checkbox-container">
+                    <input type="checkbox" id="check-${task.id}" ${isCompleted ? 'checked' : ''} onchange="toggleTask('${task.id}')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
         `;
 
         scheduleList.appendChild(card);
@@ -208,10 +305,15 @@ function toggleTask(taskId) {
         appState.completedByDate[dateKey] = {};
     }
 
-    if (appState.completedByDate[dateKey][taskId]) {
+    const wasCompleted = !!appState.completedByDate[dateKey][taskId];
+    if (wasCompleted) {
         delete appState.completedByDate[dateKey][taskId];
+        addXP(-10);
     } else {
         appState.completedByDate[dateKey][taskId] = true;
+        addXP(15); // Reward for completing
+        appState.gamification.totalCompleted++;
+        updateStreak();
     }
 
     saveAppState();
@@ -232,12 +334,10 @@ function updateProgress() {
     const dateKey = getFormattedDate(selectedDate);
     const dayKey = getDayKey(selectedDate);
 
-    let templateTasks = [];
-    if (dayKey !== 'domenica') {
-        templateTasks = scheduleData[dayKey] || [];
-    }
+    let templateTasks = scheduleData[dayKey] || [];
+    const recurringForToday = getRecurringEventsForDate(selectedDate);
     const specificDateEvents = specificEvents[dateKey] || [];
-    let tasks = [...templateTasks, ...specificDateEvents];
+    let tasks = [...templateTasks, ...recurringForToday, ...specificDateEvents];
 
     if (tasks.length === 0 && dayKey === 'domenica') {
         progressText.textContent = `100%`;
@@ -465,6 +565,7 @@ function attachModalListeners() {
 function openEditModal() {
     tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
     tempSpecificEvents = JSON.parse(JSON.stringify(specificEvents));
+    tempRecurringEvents = JSON.parse(JSON.stringify(recurringEvents));
 
     // Update specific date tab label
     const dateTab = document.getElementById('specific-date-tab');
@@ -473,14 +574,14 @@ function openEditModal() {
         dateTab.textContent = `Evento ${dateStr}`;
     }
 
-    const currentDay = getDayKey(selectedDate);
-    editingDayKey = currentDay === 'domenica' ? 'standard' : currentDay;
+    editingDayKey = getDayKey(selectedDate);
     updateModalTabsUI();
     renderEditTasks();
     editModal.classList.add('active');
 }
 
 let tempSpecificEvents = {};
+let tempRecurringEvents = [];
 
 function closeEditModal() {
     editModal.classList.remove('active');
@@ -494,23 +595,52 @@ function updateModalTabsUI() {
 
 function renderEditTasks() {
     editTasksContainer.innerHTML = '';
-    let tasks = [];
 
     if (editingDayKey === 'specific') {
         const dateKey = getFormattedDate(selectedDate);
-        tasks = tempSpecificEvents[dateKey] || [];
+        renderStandardEditRows(tempSpecificEvents[dateKey] || []);
+    } else if (editingDayKey === 'recurring') {
+        renderRecurringEditRows(tempRecurringEvents);
     } else {
-        tasks = tempScheduleData[editingDayKey] || [];
+        renderStandardEditRows(tempScheduleData[editingDayKey] || []);
     }
+}
 
+function renderStandardEditRows(tasks) {
     tasks.forEach((task, index) => {
         const row = document.createElement('div');
         row.className = 'edit-task-row';
+        row.dataset.taskId = task.id; // Store ID
         row.innerHTML = `
             <div class="drag-handle"><i class='bx bx-menu'></i></div>
             <input type="time" class="edit-time" value="${task.time}" required>
             <input type="text" class="edit-title" value="${task.title}" placeholder="Titolo" required>
             <input type="text" class="edit-details" value="${task.details}" placeholder="Dettagli">
+            <button class="remove-task-btn" onclick="removeEditTask(${index})">
+                <i class='bx bx-trash'></i>
+            </button>
+        `;
+        editTasksContainer.appendChild(row);
+    });
+}
+
+function renderRecurringEditRows(events) {
+    events.forEach((event, index) => {
+        const row = document.createElement('div');
+        row.className = 'recurring-row';
+        row.dataset.taskId = event.id; // Store ID
+        row.innerHTML = `
+            <input type="time" class="rec-time" value="${event.time}" required>
+            <input type="text" class="rec-title" value="${event.title}" placeholder="Titolo" required>
+            <input type="date" class="rec-start" value="${event.startDate}" required>
+            <div style="display:flex; gap:5px;">
+                <select class="rec-type">
+                    <option value="daily" ${event.type === 'daily' ? 'selected' : ''}>Ogni Giorno/i</option>
+                    <option value="monthly" ${event.type === 'monthly' ? 'selected' : ''}>Ogni Mese/i</option>
+                    <option value="yearly" ${event.type === 'yearly' ? 'selected' : ''}>Ogni Anno/i</option>
+                </select>
+                <input type="number" class="rec-interval" value="${event.interval}" min="1" style="width:50px;">
+            </div>
             <button class="remove-task-btn" onclick="removeEditTask(${index})">
                 <i class='bx bx-trash'></i>
             </button>
@@ -526,17 +656,19 @@ function addNewEditTask() {
         if (!tempSpecificEvents[dateKey]) tempSpecificEvents[dateKey] = [];
         tempSpecificEvents[dateKey].push({
             id: `event-${dateKey}-${Date.now()}`,
-            time: "12:00",
-            title: "Nuovo Evento Speciale",
-            details: ""
+            time: "12:00", title: "Nuovo Evento Speciale", details: ""
+        });
+    } else if (editingDayKey === 'recurring') {
+        tempRecurringEvents.push({
+            id: `rec-${Date.now()}`,
+            time: "12:00", title: "Nuova Ricorrenza", startDate: getFormattedDate(new Date()),
+            type: "daily", interval: 1
         });
     } else {
         if (!tempScheduleData[editingDayKey]) tempScheduleData[editingDayKey] = [];
         tempScheduleData[editingDayKey].push({
             id: `task-${Date.now()}`,
-            time: "12:00",
-            title: "Nuovo Evento",
-            details: ""
+            time: "12:00", title: "Nuovo Evento", details: ""
         });
     }
     renderEditTasks();
@@ -547,6 +679,8 @@ window.removeEditTask = function (index) {
     if (editingDayKey === 'specific') {
         const dateKey = getFormattedDate(selectedDate);
         tempSpecificEvents[dateKey].splice(index, 1);
+    } else if (editingDayKey === 'recurring') {
+        tempRecurringEvents.splice(index, 1);
     } else {
         tempScheduleData[editingDayKey].splice(index, 1);
     }
@@ -554,6 +688,23 @@ window.removeEditTask = function (index) {
 };
 
 function saveCurrentEditTab() {
+    if (editingDayKey === 'recurring') {
+        const rows = editTasksContainer.querySelectorAll('.recurring-row');
+        tempRecurringEvents = [];
+        rows.forEach(row => {
+            const existingId = row.dataset.taskId;
+            tempRecurringEvents.push({
+                id: existingId || `rec-${Date.now()}-${Math.random()}`,
+                time: row.querySelector('.rec-time').value,
+                title: row.querySelector('.rec-title').value,
+                startDate: row.querySelector('.rec-start').value,
+                type: row.querySelector('.rec-type').value,
+                interval: parseInt(row.querySelector('.rec-interval').value) || 1
+            });
+        });
+        return;
+    }
+
     const rows = editTasksContainer.querySelectorAll('.edit-task-row');
     const newTasks = [];
 
@@ -561,10 +712,10 @@ function saveCurrentEditTab() {
         const time = row.querySelector('.edit-time').value;
         const title = row.querySelector('.edit-title').value;
         const details = row.querySelector('.edit-details').value;
+        const existingId = row.dataset.taskId;
 
-        const idPrefix = editingDayKey === 'specific' ? 'event' : 'task';
         newTasks.push({
-            id: `${idPrefix}-${editingDayKey}-${time.replace(':', '')}-${Math.random().toString(36).substr(2, 9)}`,
+            id: existingId || `${editingDayKey === 'specific' ? 'event' : 'task'}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             time: time || "00:00",
             title: title || "Senza Titolo",
             details: details || ""
@@ -585,9 +736,11 @@ function saveEditedSchedule() {
     saveCurrentEditTab();
     Object.assign(scheduleData, tempScheduleData);
     Object.assign(specificEvents, tempSpecificEvents);
+    recurringEvents = JSON.parse(JSON.stringify(tempRecurringEvents));
 
     localStorage.setItem('tabellaGiornataSchedule', JSON.stringify(scheduleData));
     localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
+    saveRecurringEvents();
 
     closeEditModal();
     renderSchedule();
@@ -597,7 +750,8 @@ function saveEditedSchedule() {
 function exportScheduleData() {
     const fullData = {
         template: scheduleData,
-        events: specificEvents
+        events: specificEvents,
+        recurring: recurringEvents
     };
     const dataStr = JSON.stringify(fullData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -632,10 +786,16 @@ function importScheduleData(e) {
                 localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
             }
 
+            if (parsedData.recurring) {
+                recurringEvents = parsedData.recurring;
+                saveRecurringEvents();
+            }
+
             // Refresh UI
             if (editModal.classList.contains('active')) {
                 tempScheduleData = JSON.parse(JSON.stringify(scheduleData));
                 tempSpecificEvents = JSON.parse(JSON.stringify(specificEvents));
+                tempRecurringEvents = JSON.parse(JSON.stringify(recurringEvents));
                 renderEditTasks();
             }
             renderSchedule();
@@ -655,5 +815,200 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// --- Gamification Logic ---
+function initGamification() {
+    updateXPUI();
+}
+
+function addXP(amount) {
+    appState.gamification.xp += amount;
+    if (appState.gamification.xp < 0) appState.gamification.xp = 0;
+
+    const xpToNextLevel = appState.gamification.level * 100;
+    if (appState.gamification.xp >= xpToNextLevel) {
+        appState.gamification.xp -= xpToNextLevel;
+        appState.gamification.level++;
+        showNotification("LEVEL UP!", `Grande! Sei arrivato al livello ${appState.gamification.level}`);
+        playLevelUpSound();
+    }
+    updateXPUI();
+    saveAppState();
+}
+
+function updateXPUI() {
+    const xpBar = document.getElementById('xp-bar-fill');
+    const xpText = document.getElementById('xp-text');
+    const levelBadge = document.getElementById('level-badge');
+
+    if (!xpBar || !xpText || !levelBadge) return;
+
+    const xpToNextLevel = appState.gamification.level * 100;
+    const percentage = (appState.gamification.xp / xpToNextLevel) * 100;
+
+    xpBar.style.width = `${percentage}%`;
+    xpText.textContent = `${appState.gamification.xp} / ${xpToNextLevel} XP`;
+    levelBadge.textContent = `LV. ${appState.gamification.level}`;
+}
+
+function updateStreak() {
+    const today = getFormattedDate(new Date());
+    const lastDate = appState.gamification.lastActiveDate;
+
+    if (lastDate === today) return;
+
+    if (lastDate) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = getFormattedDate(yesterday);
+
+        if (lastDate === yesterdayStr) {
+            appState.gamification.streak++;
+        } else {
+            appState.gamification.streak = 1;
+        }
+    } else {
+        appState.gamification.streak = 1;
+    }
+
+    appState.gamification.lastActiveDate = today;
+}
+
+// --- Stats Logic ---
+function initStatsPanel() {
+    const toggleBtn = document.getElementById('stats-toggle-btn');
+    const panel = document.getElementById('stats-panel');
+
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('active');
+        if (panel.classList.contains('active')) {
+            updateStatsUI();
+        }
+    });
+}
+
+function updateStatsUI() {
+    document.getElementById('stat-total-completed').textContent = appState.gamification.totalCompleted;
+    document.getElementById('stat-streak').textContent = appState.gamification.streak;
+
+    const rank = document.getElementById('stat-rank');
+    if (appState.gamification.level < 5) rank.textContent = "Bronzo";
+    else if (appState.gamification.level < 10) rank.textContent = "Argento";
+    else if (appState.gamification.level < 20) rank.textContent = "Oro";
+    else rank.textContent = "Platino";
+
+    renderWeeklyChart();
+}
+
+function renderWeeklyChart() {
+    const chart = document.getElementById('week-chart');
+    if (!chart) return;
+
+    chart.innerHTML = '';
+    const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+    const today = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateKey = getFormattedDate(d);
+        const completedCount = Object.keys(appState.completedByDate[dateKey] || {}).length;
+
+        const col = document.createElement('div');
+        col.className = 'chart-column';
+
+        const barHeight = Math.min(completedCount * 10, 100);
+        col.innerHTML = `
+            <div class="chart-bar" style="height: ${barHeight}%" title="${completedCount} task"></div>
+            <span class="chart-day">${days[d.getDay()]}</span>
+        `;
+        chart.appendChild(col);
+    }
+}
+
+// --- Quote Logic ---
+function displayRandomQuote() {
+    const quoteTxt = document.getElementById('quote-text');
+    if (!quoteTxt) return;
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    quoteTxt.textContent = randomQuote;
+}
+
+// --- Pomodoro Focus Timer ---
+function toggleFocusTimer(taskId, title) {
+    if (activeFocusTaskId === taskId) {
+        stopFocusTimer();
+    } else {
+        startFocusTimer(taskId, title);
+    }
+}
+
+function startFocusTimer(taskId, title) {
+    stopFocusTimer(); // Clean up existing
+    activeFocusTaskId = taskId;
+    focusSeconds = 25 * 60; // 25 minutes
+
+    const overlay = document.createElement('div');
+    overlay.id = 'timer-overlay';
+    overlay.className = 'timer-overlay';
+    overlay.innerHTML = `
+        <div class="timer-icon"><i class='bx bxs-hot'></i></div>
+        <div class="timer-info">
+            <div class="timer-label">Focus: ${title}</div>
+            <div class="timer-display" id="timer-display">25:00</div>
+        </div>
+        <button class="timer-close" onclick="stopFocusTimer()"><i class='bx bx-x'></i></button>
+    `;
+    document.body.appendChild(overlay);
+
+    focusInterval = setInterval(() => {
+        focusSeconds--;
+        updateTimerDisplay();
+        if (focusSeconds <= 0) {
+            stopFocusTimer();
+            showNotification("Time's up!", `Sessione di focus su "${title}" completata.`);
+            addXP(30); // Big reward for focus session
+            playNotificationSound();
+        }
+    }, 1000);
+
+    renderSchedule(); // Refresh focus buttons
+}
+
+function stopFocusTimer() {
+    clearInterval(focusInterval);
+    focusInterval = null;
+    activeFocusTaskId = null;
+    const overlay = document.getElementById('timer-overlay');
+    if (overlay) document.body.removeChild(overlay);
+    renderSchedule();
+}
+
+function updateTimerDisplay() {
+    const display = document.getElementById('timer-display');
+    if (!display) return;
+    const m = Math.floor(focusSeconds / 60);
+    const s = focusSeconds % 60;
+    display.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function playLevelUpSound() {
+    try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.frequency.setValueAtTime(261.63, audioContext.currentTime); // C4
+        osc.frequency.exponentialRampToValueAtTime(523.25, audioContext.currentTime + 0.2); // C5
+        gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.5);
+    } catch (e) { }
+}
+
 document.addEventListener('DOMContentLoaded', initApp);
 window.toggleTask = toggleTask;
+window.toggleFocusTimer = toggleFocusTimer;
+window.stopFocusTimer = stopFocusTimer;
