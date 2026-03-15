@@ -19,8 +19,10 @@ const scheduleData = {
 const appDataKey = 'tabellaGiornataApp';
 const specificEventsKey = 'tabellaGiornataEvents';
 const recurringEventsKey = 'tabellaGiornataRecurring';
+const dailyReflectionsKey = 'tabellaGiornataReflections';
 
 let recurringEvents = []; // Array per eventi con regole di ripetizione
+let dailyReflections = {}; // Note giornaliere
 
 let appState = {
     date: null,
@@ -89,11 +91,15 @@ function initApp() {
     loadSpecificEvents();
     loadAppState();
     loadRecurringEvents();
+    loadDailyReflections();
 
     updateDateDisplay();
     renderSchedule();
+    renderUpcomingEvents();
+    updateReflectionUI();
     attachNavListeners();
     attachModalListeners();
+    initReflectionListener();
     initGamification();
     initStatsPanel();
     displayRandomQuote();
@@ -157,6 +163,42 @@ function saveAppState() {
     localStorage.setItem(appDataKey, JSON.stringify(appState));
 }
 
+function loadDailyReflections() {
+    const saved = localStorage.getItem(dailyReflectionsKey);
+    if (saved) dailyReflections = JSON.parse(saved);
+}
+
+function saveDailyReflections() {
+    localStorage.setItem(dailyReflectionsKey, JSON.stringify(dailyReflections));
+}
+
+function initReflectionListener() {
+    const reflectionArea = document.getElementById('daily-reflection');
+    if (reflectionArea) {
+        reflectionArea.addEventListener('input', debounce(() => {
+            const dateStr = getFormattedDate(selectedDate);
+            dailyReflections[dateStr] = reflectionArea.value;
+            saveDailyReflections();
+        }, 1000));
+    }
+}
+
+function updateReflectionUI() {
+    const reflectionArea = document.getElementById('daily-reflection');
+    if (reflectionArea) {
+        const dateStr = getFormattedDate(selectedDate);
+        reflectionArea.value = dailyReflections[dateStr] || "";
+    }
+}
+
+function debounce(func, timeout = 300) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { func.apply(this, args); }, timeout);
+    };
+}
+
 function saveSpecificEvents() {
     localStorage.setItem(specificEventsKey, JSON.stringify(specificEvents));
 }
@@ -182,6 +224,8 @@ function updateDateDisplay() {
     const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const dd = String(selectedDate.getDate()).padStart(2, '0');
     calendarInput.value = `${yyyy}-${mm}-${dd}`;
+    updateReflectionUI();
+    renderUpcomingEvents();
 }
 
 function getDayKey(date) {
@@ -219,6 +263,9 @@ function getRecurringEventsForDate(date) {
         } else if (event.type === 'monthly') {
             const months = (dateCopy.getFullYear() - start.getFullYear()) * 12 + (dateCopy.getMonth() - start.getMonth());
             if (months >= 0 && months % event.interval === 0 && dateCopy.getDate() === start.getDate()) isMatch = true;
+        } else if (event.type === 'weekly') {
+            const diffDays = Math.floor((dateCopy - start) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0 && diffDays % (event.interval * 7) === 0) isMatch = true;
         } else if (event.type === 'yearly') {
             const years = dateCopy.getFullYear() - start.getFullYear();
             if (years >= 0 && years % event.interval === 0 && dateCopy.getMonth() === start.getMonth() && dateCopy.getDate() === start.getDate()) isMatch = true;
@@ -260,10 +307,15 @@ function renderSchedule() {
     tasks.forEach((task, index) => {
         const isCompleted = !!completedTasks[task.id];
         const isSpecific = task.id.startsWith('event');
+        const isRecurring = !!task.isRecurring;
         const delay = index * 0.05;
 
+        // Category class and tag
+        const categoryClass = task.category ? `event-cat-${task.category}` : '';
+        const categoryLabel = task.category ? `<span class="category-tag cat-tag-${task.category}">${task.category}</span>` : '';
+
         const card = document.createElement('div');
-        card.className = `task-card ${isCompleted ? 'completed' : ''} ${isSpecific ? 'specific-event' : ''}`;
+        card.className = `task-card ${isCompleted ? 'completed' : ''} ${isSpecific ? 'specific-event' : ''} ${isRecurring ? 'recurring-event' : ''} ${categoryClass}`;
         card.id = `card-${task.id}`;
         card.style.animationDelay = `${delay}s`;
 
@@ -273,7 +325,10 @@ function renderSchedule() {
             </div>
             <div class="task-info">
                 <h3 class="task-title">
-                    ${isSpecific ? '<i class="bx bx-calendar-event"></i> ' : ''}${task.title}
+                    ${isSpecific ? '<i class="bx bx-calendar-event"></i> ' : ''}
+                    ${isRecurring ? '<i class="bx bx-sync"></i> ' : ''}
+                    ${task.title}
+                    ${categoryLabel}
                 </h3>
                 <p class="task-details">${task.details}</p>
             </div>
@@ -297,6 +352,76 @@ function renderSchedule() {
         checkCurrentTask();
     }
     updateProgress();
+    renderUpcomingEvents();
+}
+
+function renderUpcomingEvents() {
+    const listElement = document.getElementById('upcoming-events-list');
+    if (!listElement) return;
+
+    const upcoming = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Look ahead 60 days
+    for (let i = 0; i < 60; i++) {
+        const checkDate = new Date(today.getTime());
+        checkDate.setDate(today.getDate() + i);
+        const dateStr = getFormattedDate(checkDate);
+
+        // Specific events
+        if (specificEvents[dateStr]) {
+            specificEvents[dateStr].forEach(ev => {
+                upcoming.push({ ...ev, date: new Date(checkDate), dateStr });
+            });
+        }
+
+        // Recurring events
+        const recurring = getRecurringEventsForDate(checkDate);
+        recurring.forEach(ev => {
+            upcoming.push({ ...ev, date: new Date(checkDate), dateStr });
+        });
+
+        if (upcoming.length >= 20) break;
+    }
+
+    // Sort
+    upcoming.sort((a, b) => (a.date - b.date) || a.time.localeCompare(b.time));
+
+    // Dedup
+    const unique = [];
+    const seen = new Set();
+    for (const ev of upcoming) {
+        const k = `${ev.dateStr}-${ev.title}`;
+        if (!seen.has(k)) { unique.push(ev); seen.add(k); }
+        if (unique.length >= 4) break;
+    }
+
+    if (unique.length === 0) {
+        listElement.innerHTML = '<p class="empty-msg">Nessun evento speciale in arrivo.</p>';
+        return;
+    }
+
+    listElement.innerHTML = unique.map(ev => {
+        const diffDays = Math.ceil((ev.date - today) / (1000 * 60 * 60 * 24));
+        const daysText = diffDays === 0 ? "Oggi" : (diffDays === 1 ? "Domani" : `Tra ${diffDays} gg`);
+        const icon = ev.category === 'birthday' ? '🎂' : (ev.category === 'health' ? '🏥' : (ev.category === 'work' ? '💼' : '⭐'));
+
+        return `
+            <div class="upcoming-event-item" onclick="goToDate('${ev.dateStr}')" style="cursor:pointer">
+                <div class="event-date-badge">${ev.date.getDate()}<br>${ev.date.toLocaleString('it-IT', { month: 'short' })}</div>
+                <div class="event-info-mini">
+                    <span class="event-title-mini">${icon} ${ev.title}</span>
+                    <span class="event-days-left">${daysText} • ${ev.time}</span>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function goToDate(dateStr) {
+    selectedDate = new Date(dateStr);
+    updateDateDisplay();
+    renderSchedule();
 }
 
 function toggleTask(taskId) {
@@ -610,12 +735,19 @@ function renderDailyEditRows(tasks) {
     tasks.forEach((task, index) => {
         const row = document.createElement('div');
         row.className = 'edit-task-row';
-        row.dataset.taskId = task.id; // Store ID
+        row.dataset.taskId = task.id;
         row.innerHTML = `
             <div class="drag-handle"><i class='bx bx-menu'></i></div>
             <input type="time" class="edit-time" value="${task.time}" required>
             <input type="text" class="edit-title" value="${task.title}" placeholder="Titolo" required>
-            <input type="text" class="edit-details" value="${task.details}" placeholder="Dettagli">
+            <select class="edit-category">
+                <option value="">Categoria (Nessuna)</option>
+                <option value="birthday" ${task.category === 'birthday' ? 'selected' : ''}>🎂 Compleanno</option>
+                <option value="health" ${task.category === 'health' ? 'selected' : ''}>🏥 Salute</option>
+                <option value="work" ${task.category === 'work' ? 'selected' : ''}>💼 Lavoro</option>
+                <option value="personal" ${task.category === 'personal' ? 'selected' : ''}>⭐ Personale</option>
+            </select>
+            <input type="text" class="edit-details" value="${task.details || ""}" placeholder="Dettagli">
             <button class="remove-task-btn" onclick="removeEditTask(${index})">
                 <i class='bx bx-trash'></i>
             </button>
@@ -628,18 +760,26 @@ function renderRecurringEditRows(events) {
     events.forEach((event, index) => {
         const row = document.createElement('div');
         row.className = 'recurring-row';
-        row.dataset.taskId = event.id; // Store ID
+        row.dataset.taskId = event.id;
         row.innerHTML = `
             <input type="time" class="rec-time" value="${event.time}" required>
             <input type="text" class="rec-title" value="${event.title}" placeholder="Titolo" required>
+            <select class="rec-category">
+                <option value="">Tag</option>
+                <option value="birthday" ${event.category === 'birthday' ? 'selected' : ''}>🎂</option>
+                <option value="health" ${event.category === 'health' ? 'selected' : ''}>🏥</option>
+                <option value="work" ${event.category === 'work' ? 'selected' : ''}>💼</option>
+                <option value="personal" ${event.category === 'personal' ? 'selected' : ''}>⭐</option>
+            </select>
             <input type="date" class="rec-start" value="${event.startDate}" required>
             <div style="display:flex; gap:5px;">
                 <select class="rec-type">
-                    <option value="daily" ${event.type === 'daily' ? 'selected' : ''}>Ogni Giorno/i</option>
-                    <option value="monthly" ${event.type === 'monthly' ? 'selected' : ''}>Ogni Mese/i</option>
-                    <option value="yearly" ${event.type === 'yearly' ? 'selected' : ''}>Ogni Anno/i</option>
+                    <option value="daily" ${event.type === 'daily' ? 'selected' : ''}>Ogni Gg</option>
+                    <option value="weekly" ${event.type === 'weekly' ? 'selected' : ''}>Ogni Sett</option>
+                    <option value="monthly" ${event.type === 'monthly' ? 'selected' : ''}>Ogni Mese</option>
+                    <option value="yearly" ${event.type === 'yearly' ? 'selected' : ''}>Ogni Anno</option>
                 </select>
-                <input type="number" class="rec-interval" value="${event.interval}" min="1" style="width:50px;">
+                <input type="number" class="rec-interval" value="${event.interval}" min="1" style="width:40px;">
             </div>
             <button class="remove-task-btn" onclick="removeEditTask(${index})">
                 <i class='bx bx-trash'></i>
@@ -697,6 +837,7 @@ function saveCurrentEditTab() {
                 id: existingId || `rec-${Date.now()}-${Math.random()}`,
                 time: row.querySelector('.rec-time').value,
                 title: row.querySelector('.rec-title').value,
+                category: row.querySelector('.rec-category').value,
                 startDate: row.querySelector('.rec-start').value,
                 type: row.querySelector('.rec-type').value,
                 interval: parseInt(row.querySelector('.rec-interval').value) || 1
@@ -711,6 +852,7 @@ function saveCurrentEditTab() {
     rows.forEach(row => {
         const time = row.querySelector('.edit-time').value;
         const title = row.querySelector('.edit-title').value;
+        const category = row.querySelector('.edit-category').value;
         const details = row.querySelector('.edit-details').value;
         const existingId = row.dataset.taskId;
 
@@ -718,6 +860,7 @@ function saveCurrentEditTab() {
             id: existingId || `${editingDayKey === 'specific' ? 'event' : 'task'}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             time: time || "00:00",
             title: title || "Senza Titolo",
+            category: category || "",
             details: details || ""
         });
     });
@@ -751,7 +894,8 @@ function exportScheduleData() {
     const fullData = {
         template: scheduleData,
         events: specificEvents,
-        recurring: recurringEvents
+        recurring: recurringEvents,
+        reflections: dailyReflections
     };
     const dataStr = JSON.stringify(fullData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -789,6 +933,10 @@ function importScheduleData(e) {
             if (parsedData.recurring) {
                 recurringEvents = parsedData.recurring;
                 saveRecurringEvents();
+            }
+            if (parsedData.reflections) {
+                dailyReflections = parsedData.reflections;
+                saveDailyReflections();
             }
 
             // Refresh UI

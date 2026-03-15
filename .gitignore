@@ -1,0 +1,14 @@
+# Local storage backups
+*.json
+!manifest.json
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Old/Backup files
+Página1.html

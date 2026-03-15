@@ -13,6 +13,10 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="La Mia Giornata">
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon"
         href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50%' y='50%' font-size='60' text-anchor='middle' dominant-baseline='central' fill='white'>📅</text></svg>">
 </head>
@@ -112,68 +116,81 @@
                     <!-- Injected by JS -->
                 </div>
             </div>
-        </div>
+            <div class="dashboard-extras">
+                <div class="highlights-container">
+                    <h3><i class='bx bx-star'></i> In Evidenza</h3>
+                    <div id="upcoming-events-list" class="upcoming-events-list">
+                        <p class="empty-msg">Nessun evento speciale in arrivo.</p>
+                    </div>
+                </div>
 
-        <main>
-            <div class="schedule-list" id="schedule-list">
-                <!-- Tasks injected by JavaScript -->
-            </div>
-            <div class="all-done-message" id="all-done-message">
-                <i class='bx bxs-party'></i>
-                <h3>Giornata Completata!</h3>
-                <p>Ottimo lavoro. Hai completato tutte le attività previste per oggi.</p>
-            </div>
-        </main>
-    </div>
-
-    <!-- Edit Modal -->
-    <div class="modal-overlay" id="edit-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Modifica <span class="highlight">Tabella</span></h2>
-                <button class="close-btn" id="close-modal-btn"><i class='bx bx-x'></i></button>
+                <div class="reflection-container">
+                    <h3><i class='bx bx-edit-alt'></i> Riflessione del Giorno</h3>
+                    <textarea id="daily-reflection"
+                        placeholder="Cosa hai imparato oggi? Per cosa sei grato?"></textarea>
+                </div>
             </div>
 
-            <div class="modal-tabs">
-                <button class="modal-tab-btn" data-edit-day="lunedi">Lun</button>
-                <button class="modal-tab-btn" data-edit-day="martedi">Mar</button>
-                <button class="modal-tab-btn" data-edit-day="mercoledi">Mer</button>
-                <button class="modal-tab-btn" data-edit-day="giovedi">Gio</button>
-                <button class="modal-tab-btn" data-edit-day="venerdi">Ven</button>
-                <button class="modal-tab-btn" data-edit-day="sabato">Sab</button>
-                <button class="modal-tab-btn" data-edit-day="domenica">Dom</button>
-                <button class="modal-tab-btn" data-edit-day="recurring"
-                    title="Eventi che si ripetono">Ricorrenze</button>
-                <button class="modal-tab-btn highlight-tab" id="specific-date-tab" data-edit-day="specific">Evento
-                    (Data)</button>
-            </div>
-
-            <div class="modal-body">
-                <div id="edit-tasks-container" class="edit-tasks-container">
+            <main>
+                <div class="schedule-list" id="schedule-list">
                     <!-- Tasks injected by JavaScript -->
                 </div>
-                <button class="add-task-btn" id="add-task-btn">
-                    <i class='bx bx-plus'></i> Aggiungi Attività
-                </button>
-            </div>
-
-            <div class="modal-footer">
-                <div class="footer-left" style="display:flex; gap:0.5rem; flex:1;">
-                    <button class="btn btn-secondary" id="export-btn" title="Esporta Dati"><i
-                            class='bx bx-export'></i></button>
-                    <button class="btn btn-secondary" id="import-btn" title="Importa Dati"><i
-                            class='bx bx-import'></i></button>
-                    <input type="file" id="import-file-input" accept=".json" style="display:none">
+                <div class="all-done-message" id="all-done-message">
+                    <i class='bx bxs-party'></i>
+                    <h3>Giornata Completata!</h3>
+                    <p>Ottimo lavoro. Hai completato tutte le attività previste per oggi.</p>
                 </div>
-                <div class="footer-right" style="display:flex; gap:1rem;">
-                    <button class="btn btn-secondary" id="cancel-edit-btn">Annulla</button>
-                    <button class="btn btn-primary" id="save-edit-btn">Salva Modifiche</button>
+            </main>
+        </div>
+
+        <!-- Edit Modal -->
+        <div class="modal-overlay" id="edit-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Modifica <span class="highlight">Tabella</span></h2>
+                    <button class="close-btn" id="close-modal-btn"><i class='bx bx-x'></i></button>
+                </div>
+
+                <div class="modal-tabs">
+                    <button class="modal-tab-btn" data-edit-day="lunedi">Lun</button>
+                    <button class="modal-tab-btn" data-edit-day="martedi">Mar</button>
+                    <button class="modal-tab-btn" data-edit-day="mercoledi">Mer</button>
+                    <button class="modal-tab-btn" data-edit-day="giovedi">Gio</button>
+                    <button class="modal-tab-btn" data-edit-day="venerdi">Ven</button>
+                    <button class="modal-tab-btn" data-edit-day="sabato">Sab</button>
+                    <button class="modal-tab-btn" data-edit-day="domenica">Dom</button>
+                    <button class="modal-tab-btn" data-edit-day="recurring"
+                        title="Eventi che si ripetono">Ricorrenze</button>
+                    <button class="modal-tab-btn highlight-tab" id="specific-date-tab" data-edit-day="specific">Evento
+                        (Data)</button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="edit-tasks-container" class="edit-tasks-container">
+                        <!-- Tasks injected by JavaScript -->
+                    </div>
+                    <button class="add-task-btn" id="add-task-btn">
+                        <i class='bx bx-plus'></i> Aggiungi Attività
+                    </button>
+                </div>
+
+                <div class="modal-footer">
+                    <div class="footer-left" style="display:flex; gap:0.5rem; flex:1;">
+                        <button class="btn btn-secondary" id="export-btn" title="Esporta Dati"><i
+                                class='bx bx-export'></i></button>
+                        <button class="btn btn-secondary" id="import-btn" title="Importa Dati"><i
+                                class='bx bx-import'></i></button>
+                        <input type="file" id="import-file-input" accept=".json" style="display:none">
+                    </div>
+                    <div class="footer-right" style="display:flex; gap:1rem;">
+                        <button class="btn btn-secondary" id="cancel-edit-btn">Annulla</button>
+                        <button class="btn btn-primary" id="save-edit-btn">Salva Modifiche</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <script src="script.js"></script>
+        <script src="script.js"></script>
 </body>
 
 </html>

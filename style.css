@@ -628,14 +628,18 @@ h1 {
     padding: 0.5rem 1rem 0;
     border-bottom: 1px solid var(--card-border);
     overflow-x: auto;
+    white-space: nowrap;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    /* Firefox */
+    gap: 0.5rem;
 }
 
 .modal-tabs::-webkit-scrollbar {
-    display: none;
-    /* Safari and Chrome */
+    height: 4px;
+}
+
+.modal-tabs::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
 }
 
 .modal-tab-btn {
@@ -648,6 +652,8 @@ h1 {
     cursor: pointer;
     transition: all 0.3s ease;
     border-bottom: 3px solid transparent;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .modal-tab-btn:hover {
@@ -1357,5 +1363,292 @@ h1 {
     100% {
         transform: translateX(100%);
         opacity: 0;
+    }
+}
+
+/* Dashboard Extras (Highlights & Reflection) */
+.dashboard-extras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .dashboard-extras {
+        grid-template-columns: 1fr;
+    }
+}
+
+.highlights-container,
+.reflection-container {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+}
+
+.highlights-container h3,
+.reflection-container h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent);
+}
+
+.upcoming-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.upcoming-event-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 1rem;
+    transition: transform 0.2s;
+}
+
+.upcoming-event-item:hover {
+    transform: translateX(5px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.event-date-badge {
+    background: var(--accent);
+    color: white;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 45px;
+    text-align: center;
+}
+
+.event-info-mini {
+    flex: 1;
+}
+
+.event-title-mini {
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: block;
+}
+
+.event-days-left {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Reflection area */
+#daily-reflection {
+    width: 100%;
+    height: 100px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 1rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: none;
+    transition: all 0.3s ease;
+}
+
+#daily-reflection:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Categories & Types */
+.category-tag {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.cat-tag-birthday {
+    background: rgba(244, 114, 182, 0.2);
+    color: #f472b6;
+}
+
+.cat-tag-health {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+.cat-tag-work {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+}
+
+.cat-tag-personal {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.task-card.event-cat-birthday {
+    border-left: 4px solid #f472b6;
+}
+
+.task-card.event-cat-health {
+    border-left: 4px solid #f87171;
+}
+
+.task-card.event-cat-work {
+    border-left: 4px solid #3b82f6;
+}
+
+.task-card.event-cat-personal {
+    border-left: 4px solid #10b981;
+}
+
+/* --- MOBILE OPTIMIZATIONS (Advanced Support) --- */
+
+@media (max-width: 480px) {
+    :root {
+        --container-padding: 1rem;
+    }
+
+    .container {
+        padding: 1.5rem var(--container-padding);
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    .header-left p {
+        font-size: 0.9rem;
+    }
+
+    /* Larger touch targets for mobile */
+    .nav-btn,
+    .icon-btn,
+    .add-task-btn,
+    .btn {
+        min-height: 48px;
+        min-width: 48px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .nav-btn i {
+        font-size: 1.8rem;
+    }
+
+    /* Modal Mobile Adjustments */
+    .modal-content {
+        width: 95% !important;
+        margin: 10px auto;
+        padding: 1.2rem;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-tabs {
+        padding-bottom: 8px;
+        margin-bottom: 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .modal-tab-btn {
+        padding: 0.8rem 1.2rem;
+        font-size: 1rem;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .edit-task-row,
+    .recurring-row {
+        flex-direction: column;
+        gap: 0.8rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        position: relative;
+    }
+
+    .edit-time,
+    .rec-time,
+    .rec-start {
+        width: 100% !important;
+        font-size: 1.1rem;
+    }
+
+    .edit-title,
+    .rec-title {
+        width: 100%;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .remove-task-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(239, 68, 68, 0.1) !important;
+        padding: 5px;
+        border-radius: 8px;
+    }
+
+    .modal-footer {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .footer-left,
+    .footer-right {
+        width: 100%;
+        justify-content: center !important;
+    }
+
+    .footer-right .btn {
+        flex: 1;
+    }
+
+    /* XP Bar Mobile */
+    .gamification-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .xp-container {
+        width: 140px;
+    }
+
+    /* Agenda List */
+    .task-card {
+        padding: 1.2rem;
+    }
+
+    .task-time {
+        font-size: 0.9rem;
+    }
+
+    .task-title {
+        font-size: 1.1rem;
+    }
+}
+
+/* Fix for notch/safe areas on modern phones */
+@supports (padding: env(safe-area-inset-top)) {
+    body {
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 }
