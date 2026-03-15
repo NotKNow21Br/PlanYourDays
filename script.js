@@ -32,8 +32,21 @@ let appState = {
         level: 1,
         totalCompleted: 0,
         streak: 0,
-        lastActiveDate: null
+        lastActiveDate: null,
+        achievements: {
+            studySessions: 0,
+            commuteCount: 0,
+            earlyWakes: 0,
+            unlockedBadges: []
+        }
     }
+};
+
+const badgeDefinitions = {
+    'early-bird': { title: "Sveglia Presto", icon: "🌅", desc: "Sveglia pre-7:00 per 3 volte." },
+    'commuter': { title: "Viaggiatore Doc", icon: "🚆", desc: "5 viaggi in treno completati." },
+    'scholar': { title: "Dottore", icon: "📚", desc: "10 sessioni di studio." },
+    'legend': { title: "Leggenda", icon: "👑", desc: "Raggiungi il livello 5." }
 };
 
 let specificEvents = {}; // Format: { "YYYY-MM-DD": [tasks] }
@@ -109,10 +122,13 @@ function initApp() {
         updateThemeBasedOnTime();
         if (isToday(selectedDate)) {
             checkCurrentTask();
+            checkProactiveMessages();
         }
     }, 60000);
 
     updateThemeBasedOnTime();
+    renderTrophyCase();
+    checkProactiveMessages();
 }
 
 function loadCustomSchedule() {
@@ -148,6 +164,12 @@ function loadAppState() {
     if (savedData) {
         const parsed = JSON.parse(savedData);
         appState = { ...appState, ...parsed };
+
+        if (!appState.gamification.achievements) {
+            appState.gamification.achievements = {
+                studySessions: 0, commuteCount: 0, earlyWakes: 0, unlockedBadges: []
+            };
+        }
 
         // Migration if old format
         if (!appState.completedByDate) {
@@ -439,6 +461,13 @@ function toggleTask(taskId) {
         addXP(15); // Reward for completing
         appState.gamification.totalCompleted++;
         updateStreak();
+
+        // Track achievements
+        const dayKey = getDayKey(selectedDate);
+        const dateKey = getFormattedDate(selectedDate);
+        let allTasks = [...(scheduleData[dayKey] || []), ...getRecurringEventsForDate(selectedDate), ...(specificEvents[dateKey] || [])];
+        const taskObj = allTasks.find(t => t.id === taskId);
+        if (taskObj) checkAchievements(taskObj.title, taskObj.time);
     }
 
     saveAppState();
@@ -1160,3 +1189,124 @@ document.addEventListener('DOMContentLoaded', initApp);
 window.toggleTask = toggleTask;
 window.toggleFocusTimer = toggleFocusTimer;
 window.stopFocusTimer = stopFocusTimer;
+function renderTrophyCase() {
+    const list = document.getElementById('badge-list');
+    if (!list) return;
+
+    const unlocked = appState.gamification.achievements.unlockedBadges;
+    if (unlocked.length === 0) {
+        list.innerHTML = '<p class="empty-msg">Sblocca badge completando la tua routine!</p>';
+        return;
+    }
+
+    list.innerHTML = unlocked.map(id => {
+        const badge = badgeDefinitions[id];
+        return `
+            <div class="badge-item">
+                <div class="badge-icon">${badge.icon}</div>
+                <div class="badge-title">${badge.title}</div>
+                <div class="badge-desc">${badge.desc}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function checkAchievements(taskTitle, taskTime) {
+    const ach = appState.gamification.achievements;
+    let unlockedNow = [];
+
+    if (taskTitle.toLowerCase().includes('sveglia') && taskTime < "07:00") {
+        ach.earlyWakes++;
+        if (ach.earlyWakes === 3) unlockedNow.push('early-bird');
+    }
+    if (taskTitle.toLowerCase().includes('treno')) {
+        ach.commuteCount++;
+        if (ach.commuteCount === 5) unlockedNow.push('commuter');
+    }
+    if (taskTitle.toLowerCase().includes('studio') || taskTitle.toLowerCase().includes('compiti')) {
+        ach.studySessions++;
+        if (ach.studySessions === 10) unlockedNow.push('scholar');
+    }
+
+    unlockedNow.forEach(id => {
+        if (!ach.unlockedBadges.includes(id)) {
+            ach.unlockedBadges.push(id);
+            showAchievementToast(id);
+        }
+    });
+
+    if (appState.gamification.level >= 5 && !ach.unlockedBadges.includes('legend')) {
+        ach.unlockedBadges.push('legend');
+        showAchievementToast('legend');
+    }
+}
+
+function showAchievementToast(badgeId) {
+    const badge = badgeDefinitions[badgeId];
+    if (!badge) return;
+    showNotification(`Sbloccato: ${badge.title}`, `${badge.icon} ${badge.desc}`);
+    renderTrophyCase();
+}
+
+function checkProactiveMessages() {
+    const now = new Date();
+    if (now.getHours() >= 21) showDailySummary();
+
+    const currentTask = findCurrentTask();
+    if (!currentTask) return;
+
+    const title = currentTask.title.toLowerCase();
+    if (title.includes('treno')) {
+        showSuggestionIfNew("In viaggio? 🚆 È il momento perfetto per leggere o ascoltare un podcast!");
+    } else if (title.includes('studio')) {
+        showSuggestionIfNew("Concentrazione massima! 📚 Usa il Focus Timer per massimizzare i risultati.");
+    } else if (title.includes('cena')) {
+        showSuggestionIfNew("Buon appetito! 🍽️ Goditi il tempo con la famiglia.");
+    }
+}
+
+let lastSuggestion = "";
+function showSuggestionIfNew(msg) {
+    if (msg !== lastSuggestion) {
+        showNotification("Consiglio Pro", msg);
+        lastSuggestion = msg;
+    }
+}
+
+let lastSummaryDate = "";
+function showDailySummary() {
+    const dateKey = getFormattedDate(new Date());
+    if (lastSummaryDate === dateKey) return;
+
+    const dayKey = getDayKey(new Date());
+    const tasks = [...(scheduleData[dayKey] || []), ...getRecurringEventsForDate(new Date()), ...(specificEvents[dateKey] || [])];
+    if (tasks.length === 0) return;
+
+    const completedCount = Object.keys(appState.completedByDate[dateKey] || {}).length;
+    const percent = Math.round((completedCount / tasks.length) * 100);
+
+    let msg = `Hai completato il ${percent}% delle attività oggi.`;
+    if (percent === 100) msg = "👑 Perfetto! Hai completato tutto. Sei una leggenda!";
+    else if (percent > 70) msg = "Ottimo lavoro! Un'altra giornata produttiva completata. ✨";
+
+    showNotification("Riepilogo Serale", msg);
+    lastSummaryDate = dateKey;
+}
+
+function findCurrentTask() {
+    const dayKey = getDayKey(new Date());
+    const dateKey = getFormattedDate(new Date());
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+
+    let allTasks = [...(scheduleData[dayKey] || []), ...getRecurringEventsForDate(new Date()), ...(specificEvents[dateKey] || [])];
+    allTasks.sort((a, b) => a.time.localeCompare(b.time));
+
+    for (let i = 0; i < allTasks.length; i++) {
+        const nextTaskTime = allTasks[i + 1] ? allTasks[i + 1].time : "23:59";
+        if (timeStr >= allTasks[i].time && timeStr < nextTaskTime) {
+            return allTasks[i];
+        }
+    }
+    return null;
+}
